@@ -32,11 +32,15 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo / header */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#36EAEA]/10 border border-[#36EAEA]/30 mb-4">
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <rect width="32" height="32" rx="8" fill="none"/>
-              <path d="M8 24V8h4l4 8 4-8h4v16h-4V14l-4 8-4-8v10H8z" fill="#36EAEA"/>
-            </svg>
+          <div className="flex justify-center mb-4">
+            <div className="relative">
+              <div className="absolute inset-0 rounded-full bg-[#36EAEA]/20 blur-2xl scale-150" />
+              <img
+                src="/aibc-logo.png"
+                alt="AI Business Centers"
+                className="relative w-20 h-20 drop-shadow-[0_0_16px_rgba(54,234,234,0.5)]"
+              />
+            </div>
           </div>
           <h1 className="text-2xl font-bold text-white">AIBC Client Portal</h1>
           <p className="text-[#E6E9ED]/50 text-sm mt-1">AI Business Centers — Member Access</p>
