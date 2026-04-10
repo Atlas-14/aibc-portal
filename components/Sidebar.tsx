@@ -19,7 +19,7 @@ export default function Sidebar({ businessName }: { businessName?: string }) {
     <aside className="hidden lg:flex flex-col w-56 bg-[#0D2A4A] border-r border-[#36EAEA]/10 min-h-screen p-5">
       <div className="flex items-center gap-3 mb-8">
         <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 bg-[#36EAEA]/10">
-          <img src="/aibc-logo.png" alt="AIBC" className="w-full h-full object-contain" />
+          <img src="/aibc-logo-dark.png" alt="AIBC" className="w-full h-full object-contain" />
         </div>
         <div>
           <div className="text-white text-xs font-bold leading-tight">AIBC Portal</div>

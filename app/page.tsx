@@ -36,9 +36,9 @@ export default function LoginPage() {
             <div className="relative">
               <div className="absolute inset-0 rounded-full bg-[#36EAEA]/20 blur-2xl scale-150" />
               <img
-                src="/aibc-logo.png"
+                src="/aibc-logo-dark.png"
                 alt="AI Business Centers"
-                className="relative w-20 h-20 drop-shadow-[0_0_16px_rgba(54,234,234,0.5)]"
+                className="relative w-36 h-36 drop-shadow-[0_0_24px_rgba(54,234,234,0.5)]"
               />
             </div>
           </div>
