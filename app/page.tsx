@@ -36,9 +36,10 @@ export default function LoginPage() {
             <div className="relative">
               <div className="absolute inset-0 rounded-full bg-[#36EAEA]/20 blur-2xl scale-150" />
               <img
-                src="/aibc-logo-dark.png"
+                src="/aibc-logo-transparent.png"
                 alt="AI Business Centers"
-                className="relative w-36 h-36 drop-shadow-[0_0_24px_rgba(54,234,234,0.5)]"
+                className="relative w-40 h-40 drop-shadow-[0_0_24px_rgba(54,234,234,0.6)] animate-pulse"
+                style={{ animationDuration: '3s' }}
               />
             </div>
           </div>
