@@ -1,6 +1,7 @@
 import Sidebar from "@/components/Sidebar";
 import MobileNav from "@/components/MobileNav";
 import OnboardingModal from "@/components/OnboardingModal";
+import PageTransition from "@/components/PageTransition";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const formattedDate = new Intl.DateTimeFormat("en-US", {
@@ -25,7 +26,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </header>
         <main className="flex-1 overflow-y-auto pb-24 lg:pb-0">
-          {children}
+          <PageTransition>{children}</PageTransition>
         </main>
         <MobileNav />
         <OnboardingModal />

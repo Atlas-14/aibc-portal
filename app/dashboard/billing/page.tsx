@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import { PLANS } from "@/lib/supabase";
 import type { ClientPlan } from "@/lib/supabase";
 import paymentLinks from "@/lib/payment-links.json";
@@ -23,12 +24,56 @@ const ONE_TIME = [
 export default function BillingPage() {
   const currentPlan: ClientPlan = "plus";
   const plan = PLANS[currentPlan];
+  const [referralName, setReferralName] = useState("");
+  const [referralEmail, setReferralEmail] = useState("");
+  const [referralMessage, setReferralMessage] = useState("");
+
+  const handleReferralSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!referralName || !referralEmail) return;
+
+    const referral = {
+      name: referralName,
+      email: referralEmail,
+      submittedAt: new Date().toISOString(),
+    };
+
+    if (typeof window !== "undefined") {
+      const existing = JSON.parse(localStorage.getItem("aibc_referrals") || "[]");
+      existing.push(referral);
+      localStorage.setItem("aibc_referrals", JSON.stringify(existing));
+    }
+
+    setReferralName("");
+    setReferralEmail("");
+    setReferralMessage("Thanks! We'll reach out to them.");
+  };
 
   return (
     <div className="p-6 lg:p-10 max-w-4xl">
       <div className="mb-8">
         <p className="text-[#36EAEA] text-xs font-semibold uppercase tracking-widest mb-1">Billing</p>
         <h1 className="text-3xl font-bold text-white">Your Plan & Billing</h1>
+      </div>
+
+      {/* Ownership CTA */}
+      <div className="glass-card rounded-3xl border border-white/10 p-6 mb-6 flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="border-l-4 border-[#36EAEA]/80 pl-4">
+          <p className="text-xs uppercase tracking-widest text-[#36EAEA]/70">Deeded Units</p>
+          <h2 className="text-2xl font-bold text-white mb-2">Ready to Own Your Suite?</h2>
+          <p className="text-white/70 text-sm">
+            Upgrade from an address plan to a deeded AI Business Center unit at 125 N 9th Street, Frederick, OK. One transaction.
+            $250K commercial mortgage trade line. AI stack included.
+          </p>
+        </div>
+        <a
+          href="https://aibusinesscenters.com"
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center justify-center rounded-2xl bg-[#36EAEA] px-6 py-3 font-semibold text-[#040d1a] shadow-[0_20px_60px_rgba(54,234,234,0.35)] hover:bg-[#2fd4d4] transition-colors"
+        >
+          Learn More →
+        </a>
       </div>
 
       {/* Current plan */}
@@ -100,6 +145,43 @@ export default function BillingPage() {
             </a>
           ))}
         </div>
+      </div>
+
+      {/* Referral program */}
+      <div className="mt-6 glass-card rounded-2xl border-white/10 p-6">
+        <div className="flex flex-col gap-2 mb-4">
+          <p className="text-xs uppercase tracking-widest text-[#36EAEA]/70">Growth Rewards</p>
+          <h3 className="text-white text-xl font-semibold">Refer a Business, Get a Month Free</h3>
+          <p className="text-white/70 text-sm">
+            Know a business owner who could benefit from a professional address and business credit suite? Refer them and get one month of
+            your plan free when they sign up.
+          </p>
+        </div>
+        <form onSubmit={handleReferralSubmit} className="space-y-3">
+          <input
+            type="text"
+            placeholder="Referral name"
+            value={referralName}
+            onChange={(e) => setReferralName(e.target.value)}
+            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/40 focus:border-[#36EAEA]/60 focus:outline-none"
+            required
+          />
+          <input
+            type="email"
+            placeholder="Referral email"
+            value={referralEmail}
+            onChange={(e) => setReferralEmail(e.target.value)}
+            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/40 focus:border-[#36EAEA]/60 focus:outline-none"
+            required
+          />
+          <button
+            type="submit"
+            className="w-full rounded-2xl bg-[#36EAEA] px-4 py-3 text-sm font-semibold text-[#040d1a] hover:bg-[#2fd4d4] transition-colors"
+          >
+            Send Referral
+          </button>
+          {referralMessage && <p className="text-center text-sm text-[#36EAEA]">{referralMessage}</p>}
+        </form>
       </div>
     </div>
   );

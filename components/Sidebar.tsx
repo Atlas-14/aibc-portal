@@ -1,19 +1,28 @@
 "use client";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Mail, Send, CreditCard, BarChart2, Settings, LayoutDashboard, LogOut } from "lucide-react";
+import { Mail, Send, CreditCard, BarChart2, Settings, LayoutDashboard, LogOut, Layers } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/dashboard/mail", icon: Mail, label: "Mail" },
   { href: "/dashboard/requests", icon: Send, label: "Requests" },
   { href: "/dashboard/credit", icon: BarChart2, label: "Credit" },
+  { href: "/dashboard/tools", icon: Layers, label: "Tools" },
   { href: "/dashboard/billing", icon: CreditCard, label: "Billing" },
   { href: "/dashboard/settings", icon: Settings, label: "Settings" },
 ];
 
 export default function Sidebar({ businessName }: { businessName?: string }) {
   const pathname = usePathname();
+  const [unreadMail, setUnreadMail] = useState(0);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const unread = Number(localStorage.getItem("aibc_unread_mail") || "0");
+    if (!Number.isNaN(unread)) setUnreadMail(unread);
+  }, []);
 
   return (
     <aside className="hidden lg:flex flex-col w-56 bg-black/20 backdrop-blur-2xl border-r border-white/8 min-h-screen p-5 text-white/80">
@@ -41,7 +50,12 @@ export default function Sidebar({ businessName }: { businessName?: string }) {
                   : "border-transparent text-white/50 hover:text-white hover:bg-white/5"
               }`}
             >
-              <Icon className="h-4 w-4 flex-shrink-0" />
+              <span className="relative">
+                <Icon className="h-4 w-4 flex-shrink-0" />
+                {label === "Mail" && unreadMail > 0 && (
+                  <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-red-400" />
+                )}
+              </span>
               {label}
             </Link>
           );
