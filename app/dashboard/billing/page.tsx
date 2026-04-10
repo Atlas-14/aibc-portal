@@ -1,17 +1,23 @@
 "use client";
 import { PLANS } from "@/lib/supabase";
 import type { ClientPlan } from "@/lib/supabase";
+import paymentLinks from "@/lib/payment-links.json";
 import { Package, CreditCard } from "lucide-react";
 
 const ADD_ONS = [
-  { name: "Business Credit Reporting", price: "$249/mo", description: "D&B, Experian Business, Equifax Business reporting" },
+  {
+    name: "Business Credit Reporting",
+    price: "$249/mo",
+    description: "D&B, Experian Business, Equifax Business reporting",
+    stripe: paymentLinks.business_credit_addon,
+  },
 ];
 
 const ONE_TIME = [
-  { name: "EIN Filing", price: "$100", stripe: "#" },
-  { name: "LLC / Corp Formation", price: "$599", stripe: "#" },
-  { name: "Registered Agent", price: "$159/yr", stripe: "#" },
-  { name: "Fundability Dashboard", price: "$997 one-time", stripe: "#" },
+  { name: "EIN Filing", price: "$100", stripe: paymentLinks.ein_filing },
+  { name: "LLC / Corp Formation", price: "$599", stripe: paymentLinks.llc_formation },
+  { name: "Registered Agent", price: "$159/yr", stripe: paymentLinks.registered_agent },
+  { name: "Fundability Dashboard", price: "$997 one-time", stripe: paymentLinks.fundability_dashboard },
 ];
 
 export default function BillingPage() {
@@ -63,7 +69,14 @@ export default function BillingPage() {
             </div>
             <div className="text-right flex-shrink-0 ml-4">
               <p className="text-[#36EAEA] font-bold text-sm">{addon.price}</p>
-              <button className="text-xs text-[#36EAEA]/60 hover:text-[#36EAEA] mt-1 transition-colors">Add →</button>
+              <a
+                href={addon.stripe}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-[#36EAEA]/60 hover:text-[#36EAEA] mt-1 transition-colors"
+              >
+                Add →
+              </a>
             </div>
           </div>
         ))}
