@@ -14,8 +14,8 @@ export default function DashboardHome() {
     <div className="p-6 lg:p-10 max-w-5xl">
       <div className="mb-8">
         <p className="text-[#36EAEA] text-xs font-semibold uppercase tracking-widest mb-1">AIBC Client Portal</p>
-        <h1 className="text-2xl font-bold text-white">Welcome back</h1>
-        <p className="text-[#E6E9ED]/50 text-sm mt-1">
+        <h1 className="text-3xl font-bold text-white">Welcome back</h1>
+        <p className="text-white/50 text-sm mt-1">
           {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
         </p>
       </div>
@@ -26,20 +26,20 @@ export default function DashboardHome() {
           <Link
             key={label}
             href={href}
-            className="bg-[#0D2A4A] border border-[#36EAEA]/10 rounded-xl p-5 hover:border-[#36EAEA]/30 transition-colors"
+            className="glass-card rounded-2xl border-white/10 p-5 hover:border-teal-400/30 hover:bg-white/10 transition-all"
           >
             <Icon className={`h-5 w-5 mb-3 ${color}`} />
             <div className="text-2xl font-bold text-white mb-0.5">{value}</div>
-            <div className="text-[#E6E9ED]/50 text-xs">{label}</div>
+            <div className="text-white/60 text-xs">{label}</div>
           </Link>
         ))}
       </div>
 
       {/* Mail address */}
-      <div className="bg-[#0D2A4A] border border-[#36EAEA]/10 rounded-xl p-6 mb-6">
+      <div className="glass-card rounded-2xl border-l-4 border-l-[#36EAEA]/60 border-white/10 p-6 mb-6">
         <p className="text-xs uppercase tracking-widest text-[#36EAEA]/70 mb-1">Your Business Address</p>
         <p className="text-white font-semibold text-lg">125 N 9th Street</p>
-        <p className="text-[#E6E9ED]/60 text-sm">Frederick, Oklahoma 73542</p>
+        <p className="text-white/60 text-sm">Frederick, Oklahoma 73542</p>
       </div>
 
       {/* Quick actions */}
@@ -55,7 +55,7 @@ export default function DashboardHome() {
             <Link
               key={label}
               href={href}
-              className="bg-[#36EAEA]/5 border border-[#36EAEA]/20 rounded-lg px-4 py-3 text-sm text-[#36EAEA] text-center hover:bg-[#36EAEA]/10 transition-colors"
+              className="rounded-xl px-4 py-3 text-sm text-teal-300 text-center bg-teal-400/10 border border-teal-400/20 hover:bg-teal-400/20 transition-all"
             >
               {label} →
             </Link>

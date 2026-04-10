@@ -41,8 +41,8 @@ export default function OnboardingModal() {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="w-full max-w-lg rounded-3xl border border-[#36EAEA]/20 bg-[#0D2A4A] p-6 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="w-full max-w-lg rounded-3xl border border-white/15 bg-white/8 backdrop-blur-2xl p-6 shadow-[0_35px_120px_rgba(4,13,26,0.65)]">
         <p className="text-[#36EAEA] text-xs font-semibold uppercase tracking-[0.4em] mb-2">
           Welcome
         </p>
@@ -51,30 +51,30 @@ export default function OnboardingModal() {
         </h2>
         <div className="space-y-4">
           {STEPS.map(({ title, description, icon: Icon }, index) => (
-            <div key={title} className="flex gap-4 rounded-2xl border border-white/5 bg-white/5 p-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#071829] border border-[#36EAEA]/20 text-[#36EAEA]">
+            <div key={title} className="flex gap-4 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-black/30 border border-white/15 text-[#36EAEA] shadow-[0_0_25px_rgba(54,234,234,0.25)]">
                 <Icon className="h-6 w-6" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs uppercase tracking-widest text-[#E6E9ED]/40">
+                  <span className="glass-pill text-xs uppercase tracking-widest text-white/60 px-2 py-0.5">
                     Step {index + 1}
                   </span>
                 </div>
                 <p className="text-white font-semibold mt-1">{title}</p>
-                <p className="text-[#E6E9ED]/60 text-sm mt-1">{description}</p>
+                <p className="text-white/70 text-sm mt-1">{description}</p>
               </div>
             </div>
           ))}
         </div>
         <div className="mt-6 flex items-center justify-between">
-          <div className="inline-flex items-center gap-2 rounded-full border border-[#36EAEA]/30 bg-[#36EAEA]/10 px-3 py-1 text-xs text-[#36EAEA]">
+          <div className="inline-flex items-center gap-2 glass-pill px-3 py-1 text-xs text-[#36EAEA]">
             <BadgeCheck className="h-3.5 w-3.5" />
             Business Plus
           </div>
           <button
             onClick={dismiss}
-            className="rounded-full bg-[#36EAEA] px-5 py-2 text-sm font-semibold text-[#071829] shadow-lg shadow-[#36EAEA]/30"
+            className="rounded-full bg-[#36EAEA] px-5 py-2 text-sm font-semibold text-[#040d1a] shadow-lg shadow-[#36EAEA]/30 hover:bg-[#2fd4d4]"
           >
             Get Started
           </button>

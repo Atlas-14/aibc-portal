@@ -69,8 +69,8 @@ export default function MailPage() {
     <div className="p-6 lg:p-10 max-w-4xl">
       <div className="mb-8">
         <p className="text-[#36EAEA] text-xs font-semibold uppercase tracking-widest mb-1">Mailbox</p>
-        <h1 className="text-2xl font-bold text-white">Your Mail</h1>
-        <p className="text-[#E6E9ED]/50 text-sm mt-1">All incoming mail items at your AIBC address.</p>
+        <h1 className="text-3xl font-bold text-white">Your Mail</h1>
+        <p className="text-white/60 text-sm mt-1">All incoming mail items at your AIBC address.</p>
       </div>
 
       {loading && (
@@ -81,16 +81,16 @@ export default function MailPage() {
       )}
 
       {error && (
-        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-5 text-amber-300 text-sm">
+        <div className="glass-card rounded-2xl border border-amber-500/30 p-5 text-amber-300 text-sm">
           {error}
         </div>
       )}
 
       {!loading && !error && items.length === 0 && (
-        <div className="bg-[#0D2A4A] border border-[#36EAEA]/15 rounded-2xl p-6">
-          <div className="flex items-start gap-4 border-l-4 border-[#36EAEA] pl-4">
+        <div className="glass-card rounded-3xl border border-white/10 p-6">
+          <div className="flex items-start gap-4 border-l-4 border-[#36EAEA]/60 pl-4">
             <Mail className="h-6 w-6 text-[#36EAEA]" />
-            <p className="text-[#E6E9ED]/70 text-sm leading-relaxed">
+            <p className="text-white/70 text-sm leading-relaxed">
               Your AIBC address is active and ready to receive mail. Items will appear here as they arrive at 125 N 9th Street, Frederick, OK 73542.
             </p>
           </div>
@@ -99,15 +99,15 @@ export default function MailPage() {
 
       <div className="space-y-3">
         {items.map((item) => (
-          <div key={item.id} className="bg-[#0D2A4A] border border-[#36EAEA]/10 rounded-xl p-5">
+          <div key={item.id} className="glass-card rounded-2xl border-white/10 p-5">
             <div className="flex items-start justify-between mb-3">
               <div>
                 <p className="text-white font-semibold text-sm">{item.sender || "Unknown Sender"}</p>
-                <p className="text-[#E6E9ED]/40 text-xs mt-0.5">
+                <p className="text-white/40 text-xs mt-0.5">
                   Received: {item.received_at ? new Date(item.received_at).toLocaleDateString() : "—"}
                 </p>
               </div>
-              <span className="text-xs text-[#36EAEA]/60 bg-[#36EAEA]/5 border border-[#36EAEA]/15 rounded-full px-3 py-0.5">
+              <span className="glass-pill text-xs text-[#36EAEA] px-3 py-0.5">
                 {item.status || "new"}
               </span>
             </div>
@@ -117,7 +117,7 @@ export default function MailPage() {
                   key={action}
                   onClick={() => handleAction(item.id, action)}
                   disabled={acting === `${item.id}-${action}`}
-                  className={`text-xs border rounded-lg px-3 py-1.5 transition-colors ${color} disabled:opacity-50`}
+                  className={`text-xs border rounded-xl px-3 py-1.5 transition-colors ${color} disabled:opacity-50`}
                 >
                   {acting === `${item.id}-${action}` ? (
                     <span className="flex items-center gap-1">

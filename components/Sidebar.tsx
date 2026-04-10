@@ -16,14 +16,15 @@ export default function Sidebar({ businessName }: { businessName?: string }) {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden lg:flex flex-col w-56 bg-[#0D2A4A] border-r border-[#36EAEA]/10 min-h-screen p-5">
-      <div className="flex items-center gap-3 mb-8">
-        <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 bg-[#36EAEA]/10">
+    <aside className="hidden lg:flex flex-col w-56 bg-black/20 backdrop-blur-2xl border-r border-white/8 min-h-screen p-5 text-white/80">
+      <div className="flex items-center gap-3 mb-8 relative">
+        <div className="absolute -inset-2 rounded-2xl bg-[#36EAEA]/10 blur-2xl opacity-70" />
+        <div className="w-11 h-11 rounded-2xl overflow-hidden flex-shrink-0 bg-white/5 border border-white/10 relative z-10">
           <img src="/aibc-logo-transparent.png" alt="AIBC" className="w-full h-full object-contain" />
         </div>
-        <div>
-          <div className="text-white text-xs font-bold leading-tight">AIBC Portal</div>
-          <div className="text-[#E6E9ED]/40 text-[10px] leading-tight truncate max-w-[100px]">{businessName || "Client"}</div>
+        <div className="relative z-10">
+          <div className="text-white text-xs font-bold leading-tight uppercase tracking-wider">AIBC Portal</div>
+          <div className="text-white/50 text-[10px] leading-tight truncate max-w-[100px]">{businessName || "Client"}</div>
         </div>
       </div>
 
@@ -34,10 +35,10 @@ export default function Sidebar({ businessName }: { businessName?: string }) {
             <Link
               key={href}
               href={href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all border ${
                 active
-                  ? "bg-[#36EAEA]/10 text-[#36EAEA] border border-[#36EAEA]/20"
-                  : "text-[#E6E9ED]/60 hover:text-white hover:bg-white/5"
+                  ? "bg-teal-400/10 border-teal-400/25 text-teal-300 shadow-[0_0_25px_rgba(54,234,234,0.25)]"
+                  : "border-transparent text-white/50 hover:text-white hover:bg-white/5"
               }`}
             >
               <Icon className="h-4 w-4 flex-shrink-0" />
@@ -50,7 +51,7 @@ export default function Sidebar({ businessName }: { businessName?: string }) {
       <form action="/api/auth/logout" method="POST">
         <button
           type="submit"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[#E6E9ED]/40 hover:text-white hover:bg-white/5 transition-all w-full"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-white/30 hover:text-white/60 hover:bg-white/5 transition-all w-full"
         >
           <LogOut className="h-4 w-4" />
           Sign Out
