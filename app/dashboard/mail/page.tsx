@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Mail, Loader2 } from "lucide-react";
 
 type MailItem = {
@@ -22,19 +22,42 @@ export default function MailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [acting, setActing] = useState<string | null>(null);
+  const [scanFeedback, setScanFeedback] = useState<{ id: string; visible: boolean } | null>(null);
+  const feedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const feedbackHideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     fetch("/api/mail")
       .then((r) => r.json())
-      .then((d) => { setItems(d.items || []); setLoading(false); })
-      .catch(() => { setError("Unable to load mail. Mailbox not yet connected."); setLoading(false); });
+      .then((d) => {
+        setItems(d.items || []);
+        setLoading(false);
+      })
+      .catch(() => {
+        setError("Unable to load mail. Mailbox not yet connected.");
+        setLoading(false);
+      });
+
+    return () => {
+      if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
+      if (feedbackHideTimeoutRef.current) clearTimeout(feedbackHideTimeoutRef.current);
+    };
   }, []);
 
   const handleAction = async (itemId: string, action: string) => {
     setActing(`${itemId}-${action}`);
     try {
       await fetch(`/api/mail/${itemId}/${action}`, { method: "POST" });
-      setItems((prev) => prev.map((i) => i.id === itemId ? { ...i, status: action + "_requested" } : i));
+      setItems((prev) => prev.map((i) => (i.id === itemId ? { ...i, status: action + "_requested" } : i)));
+      if (action === "scan") {
+        if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
+        if (feedbackHideTimeoutRef.current) clearTimeout(feedbackHideTimeoutRef.current);
+        setScanFeedback({ id: itemId, visible: true });
+        feedbackTimeoutRef.current = setTimeout(() => {
+          setScanFeedback((prev) => (prev && prev.id === itemId ? { ...prev, visible: false } : prev));
+          feedbackHideTimeoutRef.current = setTimeout(() => setScanFeedback((prev) => (prev && prev.id === itemId ? null : prev)), 300);
+        }, 3000);
+      }
     } catch {
       alert("Request failed. Please try again.");
     } finally {
@@ -64,9 +87,13 @@ export default function MailPage() {
       )}
 
       {!loading && !error && items.length === 0 && (
-        <div className="bg-[#0D2A4A] border border-[#36EAEA]/10 rounded-xl p-10 text-center">
-          <Mail className="h-10 w-10 text-[#36EAEA]/30 mx-auto mb-3" />
-          <p className="text-[#E6E9ED]/60 text-sm">No mail items yet. New items will appear here as they arrive.</p>
+        <div className="bg-[#0D2A4A] border border-[#36EAEA]/15 rounded-2xl p-6">
+          <div className="flex items-start gap-4 border-l-4 border-[#36EAEA] pl-4">
+            <Mail className="h-6 w-6 text-[#36EAEA]" />
+            <p className="text-[#E6E9ED]/70 text-sm leading-relaxed">
+              Your AIBC address is active and ready to receive mail. Items will appear here as they arrive at 125 N 9th Street, Frederick, OK 73542.
+            </p>
+          </div>
         </div>
       )}
 
@@ -89,13 +116,29 @@ export default function MailPage() {
                 <button
                   key={action}
                   onClick={() => handleAction(item.id, action)}
-                  disabled={!!acting}
+                  disabled={acting === `${item.id}-${action}`}
                   className={`text-xs border rounded-lg px-3 py-1.5 transition-colors ${color} disabled:opacity-50`}
                 >
-                  {acting === `${item.id}-${action}` ? "..." : label}
+                  {acting === `${item.id}-${action}` ? (
+                    <span className="flex items-center gap-1">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Processing
+                    </span>
+                  ) : (
+                    label
+                  )}
                 </button>
               ))}
             </div>
+            {scanFeedback?.id === item.id && (
+              <p
+                className={`text-xs font-semibold text-[#36EAEA] mt-3 transition-opacity duration-300 ${
+                  scanFeedback.visible ? "opacity-100" : "opacity-0"
+                }`}
+              >
+                Scan requested ✓
+              </p>
+            )}
           </div>
         ))}
       </div>
