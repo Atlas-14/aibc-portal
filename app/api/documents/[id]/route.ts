@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export async function DELETE(_request: NextRequest, context: { params: { id: string } }) {
-  const documentId = context.params?.id;
+export async function DELETE(_request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { id: documentId } = await context.params;
 
   if (!documentId) {
     return NextResponse.json({ error: "Document ID is required" }, { status: 400 });
