@@ -34,18 +34,18 @@ const fromAibcDocuments: StoredDocument[] = [
     uploadedAt: "2024-03-01T10:00:00.000Z",
     category: "Address",
     fromAibc: true,
-    downloadUrl: "data:text/plain;charset=utf-8," + encodeURIComponent("Official confirmation provided by AIBC."),
+    downloadUrl: "/api/documents/generate/address-certificate",
   },
   {
-    id: "aibc-plan-confirmation",
-    fileName: "Business Plus Plan Confirmation.pdf",
-    description: "Your current plan details and account information",
+    id: "aibc-welcome-letter",
+    fileName: "AIBC Welcome Letter.pdf",
+    description: "A personal welcome from Ricky Kinney confirming your active business address",
     fileType: "application/pdf",
     fileSize: 384 * 1024,
     uploadedAt: "2024-02-20T14:30:00.000Z",
     category: "Other",
     fromAibc: true,
-    downloadUrl: "data:text/plain;charset=utf-8," + encodeURIComponent("Plan confirmation placeholder."),
+    downloadUrl: "/api/documents/generate/welcome-letter",
   },
 ];
 
@@ -243,12 +243,16 @@ export default function DocumentsPage() {
                   <p className="text-white/40 text-xs mt-1">Added {formatDate(doc.uploadedAt)}</p>
                 </div>
               </div>
-              <button
-                onClick={() => handleDownload(doc)}
-                className="rounded-full border border-[#36EAEA]/50 text-[#36EAEA] px-4 py-2 text-xs font-semibold hover:bg-[#36EAEA]/10 transition"
-              >
-                Download
-              </button>
+              {doc.downloadUrl && (
+                <a
+                  href={doc.downloadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-full border border-[#36EAEA]/50 text-[#36EAEA] px-4 py-2 text-xs font-semibold hover:bg-[#36EAEA]/10 transition"
+                >
+                  Download
+                </a>
+              )}
             </article>
           ))}
         </div>
