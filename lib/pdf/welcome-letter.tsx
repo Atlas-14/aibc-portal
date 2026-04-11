@@ -1,18 +1,6 @@
 import React from "react";
-import { Document, Font, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 
-Font.register({
-  family: "Inter",
-  fonts: [
-    {
-      src: "https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3ha8g7QyeLqGS9KhWCKw.woff2",
-    },
-    {
-      src: "https://fonts.gstatic.com/s/inter/v12/UcC73FwrK3ha8g7QyeLqGS9KhTcS0f3rCw.woff2",
-      fontWeight: 600,
-    },
-  ],
-});
 
 export type WelcomeLetterProps = {
   clientName: string;
@@ -33,7 +21,7 @@ const styles = StyleSheet.create({
     paddingBottom: 54,
     paddingHorizontal: 72,
     backgroundColor: "#fff",
-    fontFamily: "Inter",
+    fontFamily: "Helvetica",
     fontSize: 12,
     lineHeight: 1.6,
     color: colors.dark,

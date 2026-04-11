@@ -1,23 +1,7 @@
 import React from "react";
-import { Document, Font, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 
-Font.register({
-  family: "PlayfairDisplay",
-  src: "https://fonts.gstatic.com/s/playfairdisplay/v30/nuFiD-vYSZviVYUb_rj3ij__anPXDTzYhWtfA8Q.woff2",
-});
 
-Font.register({
-  family: "Inter",
-  fonts: [
-    {
-      src: "https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3ha8g7QyeLqGS9KhWCKw.woff2",
-    },
-    {
-      src: "https://fonts.gstatic.com/s/inter/v12/UcC73FwrK3ha8g7QyeLqGS9KhTcS0f3rCw.woff2",
-      fontWeight: 600,
-    },
-  ],
-});
 
 export type BusinessAddressCertificateProps = {
   clientName: string;
@@ -50,7 +34,7 @@ const styles = StyleSheet.create({
     objectFit: "contain",
   },
   companyName: {
-    fontFamily: "Inter",
+    fontFamily: "Helvetica",
     fontWeight: 600,
     fontSize: 16,
     color: colors.teal,
@@ -65,7 +49,7 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
   certificateHeading: {
-    fontFamily: "PlayfairDisplay",
+    fontFamily: "Helvetica",
     fontSize: 28,
     textAlign: "center",
     color: colors.navy,
@@ -73,7 +57,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   subheading: {
-    fontFamily: "Inter",
+    fontFamily: "Helvetica",
     fontSize: 12,
     color: colors.dark,
     textAlign: "center",
@@ -88,7 +72,7 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
   },
   sectionLabel: {
-    fontFamily: "Inter",
+    fontFamily: "Helvetica",
     fontSize: 10,
     color: colors.navy,
     letterSpacing: 2,
@@ -96,31 +80,31 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   businessName: {
-    fontFamily: "PlayfairDisplay",
+    fontFamily: "Helvetica",
     fontSize: 22,
     color: colors.navy,
     marginBottom: 8,
   },
   ownerName: {
-    fontFamily: "Inter",
+    fontFamily: "Helvetica",
     fontSize: 13,
     color: colors.dark,
     marginBottom: 10,
   },
   address: {
-    fontFamily: "Inter",
+    fontFamily: "Helvetica",
     fontSize: 12,
     color: colors.dark,
     lineHeight: 1.6,
   },
   compliance: {
-    fontFamily: "Inter",
+    fontFamily: "Helvetica",
     fontSize: 10,
     color: colors.dark,
     marginTop: 12,
   },
   issueDate: {
-    fontFamily: "Inter",
+    fontFamily: "Helvetica",
     fontSize: 12,
     color: colors.navy,
     marginTop: 16,
@@ -137,14 +121,14 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   certificateNumberLabel: {
-    fontFamily: "Inter",
+    fontFamily: "Helvetica",
     fontSize: 10,
     color: colors.dark,
     textTransform: "uppercase",
     letterSpacing: 2,
   },
   certificateNumberValue: {
-    fontFamily: "PlayfairDisplay",
+    fontFamily: "Helvetica",
     fontSize: 18,
     color: colors.navy,
     marginTop: 4,
@@ -159,12 +143,12 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   signatureName: {
-    fontFamily: "PlayfairDisplay",
+    fontFamily: "Helvetica",
     fontSize: 16,
     color: colors.navy,
   },
   signatureTitle: {
-    fontFamily: "Inter",
+    fontFamily: "Helvetica",
     fontSize: 10,
     color: colors.dark,
   },
@@ -175,7 +159,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   footerText: {
-    fontFamily: "Inter",
+    fontFamily: "Helvetica",
     fontSize: 10,
     color: colors.dark,
     letterSpacing: 2,
