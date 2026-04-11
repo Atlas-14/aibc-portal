@@ -1,15 +1,24 @@
 "use client";
 
-import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { FileText, UploadCloud, Download, Trash2, BadgeCheck } from "lucide-react";
+import { ADDRESS_STATUS_EVENT, AddressStatus, getAddressStatus, setAddressStatus } from "@/lib/address-status";
 
 const STORAGE_KEY = "aibc_documents";
+const ACTIVATION_STORAGE_KEY = "aibc_activation_docs";
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const ACCEPTED_TYPES = ["application/pdf", "image/png", "image/jpeg", "image/webp"];
 const ACCEPTED_EXTENSIONS = [".pdf", ".png", ".jpg", ".jpeg", ".webp"];
 const DOCUMENT_CATEGORIES = ["Formation", "Tax", "Banking", "Address", "Credit", "Other"] as const;
 
+const DEFAULT_ACTIVATION_STATE = {
+  form1583: null,
+  idOne: null,
+  idTwo: null,
+} as const;
+
 type DocumentCategory = (typeof DOCUMENT_CATEGORIES)[number];
+type ActivationDocKey = "form1583" | "idOne" | "idTwo";
 
 type StoredDocument = {
   id: string;
@@ -22,6 +31,18 @@ type StoredDocument = {
   description?: string;
   dataUrl?: string;
   downloadUrl?: string;
+};
+
+type ActivationDocumentsState = Record<ActivationDocKey, File | null>;
+
+type ActivationUploadFieldProps = {
+  id: string;
+  label: string;
+  description: string;
+  accept: string;
+  file: File | null;
+  onChange: (file: File | null) => void;
+  inputKey: string;
 };
 
 const fromAibcDocuments: StoredDocument[] = [
@@ -46,6 +67,61 @@ const fromAibcDocuments: StoredDocument[] = [
     category: "Other",
     fromAibc: true,
     downloadUrl: "/api/documents/generate/welcome-letter",
+  },
+  {
+    id: "aibc-plan-summary",
+    fileName: "Business Plus Plan Summary.pdf",
+    description: "Snapshot of your Business Plus plan features, limits, and billing details.",
+    fileType: "application/pdf",
+    fileSize: 420 * 1024,
+    uploadedAt: "2024-04-01T09:00:00.000Z",
+    category: "Address",
+    fromAibc: true,
+    downloadUrl: "/api/documents/generate/plan-summary",
+  },
+  {
+    id: "aibc-mail-authorization",
+    fileName: "Mail Handling Authorization Letter.pdf",
+    description: "Formal authorization confirming your business may receive mail at the AIBC address.",
+    fileType: "application/pdf",
+    fileSize: 360 * 1024,
+    uploadedAt: "2024-04-02T09:00:00.000Z",
+    category: "Address",
+    fromAibc: true,
+    downloadUrl: "/api/documents/generate/mail-authorization",
+  },
+  {
+    id: "aibc-credit-reporting",
+    fileName: "Business Credit Reporting Confirmation.pdf",
+    description: "Confirmation that your plan payments are reported to business credit bureaus.",
+    fileType: "application/pdf",
+    fileSize: 340 * 1024,
+    uploadedAt: "2024-04-03T09:00:00.000Z",
+    category: "Credit",
+    fromAibc: true,
+    downloadUrl: "/api/documents/generate/credit-reporting",
+  },
+  {
+    id: "aibc-member-id",
+    fileName: "AIBC Member ID Card.pdf",
+    description: "Your digital membership card with plan, address, and account ID details.",
+    fileType: "application/pdf",
+    fileSize: 220 * 1024,
+    uploadedAt: "2024-04-04T09:00:00.000Z",
+    category: "Other",
+    fromAibc: true,
+    downloadUrl: "/api/documents/generate/member-id",
+  },
+  {
+    id: "aibc-form-1583",
+    fileName: "Form 1583 Instructions.pdf",
+    description: "Cover letter explaining how to complete and submit USPS Form 1583 for activation.",
+    fileType: "application/pdf",
+    fileSize: 300 * 1024,
+    uploadedAt: "2024-04-05T09:00:00.000Z",
+    category: "Address",
+    fromAibc: true,
+    downloadUrl: "/api/documents/generate/form-1583",
   },
 ];
 
@@ -79,7 +155,11 @@ export default function DocumentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [addressStatus, setAddressStatusState] = useState<AddressStatus>("inactive");
+  const [activationDocs, setActivationDocs] = useState<ActivationDocumentsState>({ ...DEFAULT_ACTIVATION_STATE });
+  const [activationError, setActivationError] = useState<string | null>(null);
+  const [activationSubmitting, setActivationSubmitting] = useState(false);
+  const [activationInputResetKey, setActivationInputResetKey] = useState(0);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -92,6 +172,33 @@ export default function DocumentsPage() {
     } catch (err) {
       console.error("Unable to parse stored documents", err);
     }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setAddressStatusState(getAddressStatus());
+
+    const handleStatusChange = (event: Event) => {
+      if (event instanceof CustomEvent && event.detail) {
+        setAddressStatusState(event.detail as AddressStatus);
+        return;
+      }
+      setAddressStatusState(getAddressStatus());
+    };
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === "aibc_address_status") {
+        setAddressStatusState(getAddressStatus());
+      }
+    };
+
+    window.addEventListener(ADDRESS_STATUS_EVENT, handleStatusChange as EventListener);
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      window.removeEventListener(ADDRESS_STATUS_EVENT, handleStatusChange as EventListener);
+      window.removeEventListener("storage", handleStorage);
+    };
   }, []);
 
   useEffect(() => {
@@ -110,8 +217,9 @@ export default function DocumentsPage() {
   const resetUploadState = () => {
     setSelectedFile(null);
     setSelectedCategory("Other");
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+    const input = document.getElementById("document-upload") as HTMLInputElement | null;
+    if (input) {
+      input.value = "";
     }
   };
 
@@ -143,6 +251,92 @@ export default function DocumentsPage() {
     }
 
     setSelectedFile(file);
+  };
+
+  const handleActivationDocChange = (key: ActivationDocKey, file: File | null) => {
+    setActivationError(null);
+
+    if (!file) {
+      setActivationDocs((prev) => ({ ...prev, [key]: null }));
+      return;
+    }
+
+    if (file.size > MAX_FILE_BYTES) {
+      setActivationError("Each file must be 10MB or less.");
+      return;
+    }
+
+    const mimeType = (file.type || "").toLowerCase();
+    const extension = file.name.substring(file.name.lastIndexOf(".")).toLowerCase();
+
+    const isPdf = mimeType === "application/pdf" || extension === ".pdf";
+    if (key === "form1583" && !isPdf) {
+      setActivationError("Completed Form 1583 must be uploaded as a PDF.");
+      return;
+    }
+
+    if (key !== "form1583") {
+      const isMimeAllowed = ACCEPTED_TYPES.includes(mimeType);
+      const isExtensionAllowed = ACCEPTED_EXTENSIONS.includes(extension);
+      if (!isMimeAllowed && !isExtensionAllowed) {
+        setActivationError("ID uploads must be PDF or image files (PNG, JPG, WEBP).");
+        return;
+      }
+    }
+
+    setActivationDocs((prev) => ({ ...prev, [key]: file }));
+  };
+
+  const handleActivationSubmit = async () => {
+    if (!activationDocs.form1583 || !activationDocs.idOne || !activationDocs.idTwo) {
+      setActivationError("Upload the Form 1583 and both IDs before submitting.");
+      return;
+    }
+
+    setActivationSubmitting(true);
+    setActivationError(null);
+
+    try {
+      const payload = {
+        clientName: "Ricky Kinney",
+        businessName: "AI Business Centers LLC",
+        files: {
+          form1583: activationDocs.form1583.name,
+          idOne: activationDocs.idOne.name,
+          idTwo: activationDocs.idTwo.name,
+        },
+      };
+
+      const response = await fetch("/api/compliance/submit-activation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error("Unable to submit documents at this time.");
+      }
+
+      const data = await response.json();
+
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(
+          ACTIVATION_STORAGE_KEY,
+          JSON.stringify({ ...payload.files, submittedAt: new Date().toISOString() })
+        );
+      }
+
+      setAddressStatus("pending_review");
+      setAddressStatusState((data?.status as AddressStatus) || "pending_review");
+      setActivationDocs({ ...DEFAULT_ACTIVATION_STATE });
+      setActivationInputResetKey((prev) => prev + 1);
+      setToastMessage("Documents submitted! We'll review and activate your address within 1-2 business days.");
+    } catch (err) {
+      console.error(err);
+      setActivationError("There was an issue submitting your documents. Please try again.");
+    } finally {
+      setActivationSubmitting(false);
+    }
   };
 
   const handleUpload = async () => {
@@ -208,11 +402,66 @@ export default function DocumentsPage() {
         <p className="text-white/60 text-sm">Upload items like EIN confirmations, bank letters, credit approvals, and more.</p>
       </div>
 
-      {/* Toast */}
       {toastMessage && (
         <div className="fixed top-6 right-6 rounded-2xl border border-teal-400/30 bg-black/70 text-teal-200 px-5 py-3 text-sm shadow-[0_10px_40px_rgba(0,0,0,0.45)]">
           {toastMessage}
         </div>
+      )}
+
+      {addressStatus !== "active" && (
+        <section className="glass-card rounded-2xl border border-amber-500/30 bg-white/5 p-6 mb-8">
+          <div className="flex flex-col gap-2 mb-6">
+            <div className="flex items-center gap-3">
+              <h2 className="text-white text-lg font-semibold">Address Activation Required</h2>
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-200 bg-amber-500/10 border border-amber-400/40 rounded-full px-3 py-0.5">
+                Action Needed
+              </span>
+            </div>
+            <p className="text-white/70 text-sm">
+              Before your AIBC commercial address can be activated, you must submit a completed USPS Form 1583 and two valid government-issued photo IDs.
+            </p>
+          </div>
+
+          <div className="grid gap-5 md:grid-cols-3">
+            <ActivationUploadField
+              id="activation-form1583"
+              label="Completed Form 1583"
+              description="PDF only — notarized, signed"
+              accept=".pdf,application/pdf"
+              file={activationDocs.form1583}
+              onChange={(file) => handleActivationDocChange("form1583", file)}
+              inputKey={`form1583-${activationInputResetKey}`}
+            />
+            <ActivationUploadField
+              id="activation-id-one"
+              label="ID #1 — Front"
+              description="PDF or image (PNG, JPG, WEBP)"
+              accept=".pdf,.png,.jpg,.jpeg,.webp"
+              file={activationDocs.idOne}
+              onChange={(file) => handleActivationDocChange("idOne", file)}
+              inputKey={`idOne-${activationInputResetKey}`}
+            />
+            <ActivationUploadField
+              id="activation-id-two"
+              label="ID #2 — Front"
+              description="PDF or image (PNG, JPG, WEBP)"
+              accept=".pdf,.png,.jpg,.jpeg,.webp"
+              file={activationDocs.idTwo}
+              onChange={(file) => handleActivationDocChange("idTwo", file)}
+              inputKey={`idTwo-${activationInputResetKey}`}
+            />
+          </div>
+
+          {activationError && <p className="text-sm text-rose-300 mt-4">{activationError}</p>}
+
+          <button
+            onClick={handleActivationSubmit}
+            disabled={activationSubmitting}
+            className="mt-6 w-full rounded-xl bg-[#36EAEA]/90 px-4 py-3 text-sm font-semibold text-slate-900 hover:bg-[#36EAEA] disabled:opacity-60"
+          >
+            {activationSubmitting ? "Submitting..." : "Submit for Review"}
+          </button>
+        </section>
       )}
 
       <section className="glass-card rounded-2xl border border-white/10 p-6 mb-8">
@@ -224,7 +473,7 @@ export default function DocumentsPage() {
                 <BadgeCheck className="h-3.5 w-3.5" /> Official
               </span>
             </div>
-            <p className="text-white/60 text-sm">Important records we7ve issued for your business.</p>
+            <p className="text-white/60 text-sm">Important records we've issued for your business.</p>
           </div>
         </div>
         <div className="space-y-3">
@@ -281,7 +530,6 @@ export default function DocumentsPage() {
             </div>
           </label>
           <input
-            ref={fileInputRef}
             id="document-upload"
             type="file"
             accept=".pdf,.png,.jpg,.jpeg,.webp"
@@ -373,6 +621,34 @@ export default function DocumentsPage() {
           </div>
         )}
       </section>
+    </div>
+  );
+}
+
+function ActivationUploadField({ id, label, description, accept, file, onChange, inputKey }: ActivationUploadFieldProps) {
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-sm font-semibold text-white">{label}</p>
+      <label
+        htmlFor={id}
+        className="flex flex-1 cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-white/15 bg-white/5 p-6 text-center text-white/70 hover:border-[#36EAEA]/50 hover:text-white transition"
+      >
+        <UploadCloud className="h-8 w-8 text-[#36EAEA]" />
+        <div>
+          <p className="text-sm font-semibold text-white">
+            {file ? file.name : "Drag & drop or click to browse"}
+          </p>
+          <p className="text-xs text-white/50">{description}</p>
+        </div>
+      </label>
+      <input
+        key={inputKey}
+        id={id}
+        type="file"
+        accept={accept}
+        className="hidden"
+        onChange={(event: ChangeEvent<HTMLInputElement>) => onChange(event.target.files?.[0] || null)}
+      />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import Sidebar from "@/components/Sidebar";
 import MobileNav from "@/components/MobileNav";
 import OnboardingModal from "@/components/OnboardingModal";
 import PageTransition from "@/components/PageTransition";
+import AddressStatusBanner from "@/components/AddressStatusBanner";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const formattedDate = new Intl.DateTimeFormat("en-US", {
@@ -25,6 +26,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             Business Plus
           </div>
         </header>
+        <AddressStatusBanner />
         <main className="flex-1 overflow-y-auto pb-24 lg:pb-0">
           <PageTransition>{children}</PageTransition>
         </main>
