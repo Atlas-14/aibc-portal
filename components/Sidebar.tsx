@@ -2,15 +2,16 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Mail, Send, CreditCard, BarChart2, Settings, LayoutDashboard, LogOut, Layers } from "lucide-react";
+import { Mail, Send, CreditCard, BarChart2, Settings, LayoutDashboard, LogOut, Layers, FolderOpen } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/dashboard/mail", icon: Mail, label: "Mail" },
   { href: "/dashboard/requests", icon: Send, label: "Requests" },
   { href: "/dashboard/credit", icon: BarChart2, label: "Credit" },
-  { href: "/dashboard/tools", icon: Layers, label: "Tools" },
   { href: "/dashboard/billing", icon: CreditCard, label: "Billing" },
+  { href: "/dashboard/tools", icon: Layers, label: "Tools" },
+  { href: "/dashboard/documents", icon: FolderOpen, label: "Documents" },
   { href: "/dashboard/settings", icon: Settings, label: "Settings" },
 ];
 
