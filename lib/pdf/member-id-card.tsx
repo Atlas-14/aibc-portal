@@ -6,113 +6,140 @@ export type MemberIdCardProps = {
   businessName: string;
   memberSince: string;
   memberId: string;
-  planName?: string;
 };
 
 const styles = StyleSheet.create({
   page: {
-    backgroundColor: "#030A16",
+    width: 252,
+    height: 153,
+    padding: 0,
+    backgroundColor: "#0D2A4A",
+    fontFamily: "Helvetica",
   },
-  card: {
+  content: {
     flex: 1,
-    backgroundColor: "#051B33",
-    borderRadius: 20,
-    margin: 20,
-    padding: 18,
-    color: "white",
+    padding: 16,
     justifyContent: "space-between",
   },
-  header: {
+  headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
+  brandGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   logo: {
-    width: 42,
-    height: 42,
+    width: 28,
+    height: 28,
     objectFit: "contain",
   },
-  title: {
-    fontFamily: "Helvetica",
-    fontSize: 14,
-    letterSpacing: 2,
-    color: "#36EAEA",
-  },
-  infoBlock: {
-    marginTop: 10,
-  },
-  label: {
-    fontFamily: "Helvetica",
-    fontSize: 8,
-    letterSpacing: 2,
-    color: "#7DD3D7",
-    textTransform: "uppercase",
-    marginBottom: 2,
-  },
-  value: {
-    fontFamily: "Helvetica",
-    fontSize: 12,
-    color: "white",
-  },
-  footer: {
-    marginTop: 8,
-  },
-  memberId: {
-    fontFamily: "Helvetica",
-    fontSize: 12,
-    letterSpacing: 4,
-    color: "#36EAEA",
-  },
-  tagline: {
-    fontFamily: "Helvetica",
-    fontSize: 9,
-    color: "white",
-    textAlign: "center",
+  brandText: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 7,
     letterSpacing: 1,
+    color: "#FFFFFF",
+    marginLeft: 8,
+  },
+  memberBadge: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 7,
+    letterSpacing: 1,
+    color: "#36EAEA",
+  },
+  divider: {
+    height: 1,
+    width: "100%",
+    backgroundColor: "#36EAEA",
+    opacity: 0.8,
+    marginTop: 6,
+  },
+  textGroup: {
+    marginTop: 12,
+  },
+  clientName: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 13,
+    color: "#FFFFFF",
+  },
+  businessName: {
+    fontSize: 8,
+    color: "rgba(255, 255, 255, 0.7)",
+    marginTop: 2,
+  },
+  detailsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 12,
+  },
+  detailColumn: {
+    width: "33%",
+  },
+  detailLabel: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 5,
+    color: "#36EAEA",
+    letterSpacing: 0.5,
+  },
+  detailValue: {
+    fontSize: 8,
+    color: "#FFFFFF",
+    marginTop: 3,
+  },
+  decoration: {
+    alignItems: "flex-end",
+  },
+  accentDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#36EAEA",
+    alignSelf: "flex-end",
   },
 });
 
 const logoSource = `${process.cwd()}/public/aibc-logo-transparent.png`;
 
-export function MemberIdCard({ clientName, businessName, memberSince, memberId, planName = "Business Plus" }: MemberIdCardProps) {
+export function MemberIdCard({ clientName, businessName, memberSince, memberId }: MemberIdCardProps) {
   return (
     <Document>
-      <Page size={{ width: 252, height: 144 }} orientation="landscape" style={styles.page}>
-        <View style={styles.card}>
-          <View style={styles.header}>
-            <Image src={logoSource} style={styles.logo} />
-            <Text style={styles.title}>AI BUSINESS CENTERS</Text>
+      <Page size={{ width: 252, height: 153 }} orientation="landscape" style={styles.page}>
+        <View style={styles.content}>
+          <View>
+            <View style={styles.headerRow}>
+              <View style={styles.brandGroup}>
+                <Image src={logoSource} style={styles.logo} />
+                <Text style={styles.brandText}>AI BUSINESS CENTERS</Text>
+              </View>
+              <Text style={styles.memberBadge}>MEMBER</Text>
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.textGroup}>
+              <Text style={styles.clientName}>{clientName}</Text>
+              <Text style={styles.businessName}>{businessName}</Text>
+            </View>
           </View>
 
           <View>
-            <View style={styles.infoBlock}>
-              <Text style={styles.label}>Member Name</Text>
-              <Text style={styles.value}>{clientName}</Text>
+            <View style={styles.detailsRow}>
+              <View style={styles.detailColumn}>
+                <Text style={styles.detailLabel}>PLAN</Text>
+                <Text style={styles.detailValue}>Business Plus</Text>
+              </View>
+              <View style={styles.detailColumn}>
+                <Text style={styles.detailLabel}>MEMBER SINCE</Text>
+                <Text style={styles.detailValue}>{memberSince}</Text>
+              </View>
+              <View style={styles.detailColumn}>
+                <Text style={styles.detailLabel}>ID</Text>
+                <Text style={styles.detailValue}>{memberId}</Text>
+              </View>
             </View>
-            <View style={styles.infoBlock}>
-              <Text style={styles.label}>Business</Text>
-              <Text style={styles.value}>{businessName}</Text>
-            </View>
-            <View style={styles.infoBlock}>
-              <Text style={styles.label}>Member Since</Text>
-              <Text style={styles.value}>{memberSince}</Text>
-            </View>
-            <View style={styles.infoBlock}>
-              <Text style={styles.label}>Plan</Text>
-              <Text style={styles.value}>{planName}</Text>
-            </View>
-            <View style={styles.infoBlock}>
-              <Text style={styles.label}>Address</Text>
-              <Text style={styles.value}>125 N 9th Street, Frederick, OK</Text>
+            <View style={styles.decoration}>
+              <View style={styles.accentDot} />
             </View>
           </View>
-
-          <View style={styles.footer}>
-            <Text style={styles.label}>Member ID</Text>
-            <Text style={styles.memberId}>{memberId}</Text>
-          </View>
-
-          <Text style={styles.tagline}>Pioneers in AI + Commercial Real Estate</Text>
         </View>
       </Page>
     </Document>
