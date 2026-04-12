@@ -44,11 +44,11 @@ export async function GET(req: NextRequest) {
       });
     };
 
-    // ── SECTION 2 — CMRA Information (pre-filled by AIBC) ─────────────
+    // -- SECTION 2 - CMRA Information (pre-filled by AIBC) -------------
     // 2a Street Address
     fill(42, 138, "125 N 9th Street", { bold: true });
     // 2b PMB #
-    fill(340, 138, "—");
+    fill(340, 138, "-");
     // 2c City
     fill(42, 153, "Frederick");
     // 2d State
@@ -56,17 +56,17 @@ export async function GET(req: NextRequest) {
     // 2e ZIP
     fill(270, 153, "73542");
 
-    // ── SECTION 3 — Type of Service (check Business/Organization Use) ──
+    // -- SECTION 3 - Type of Service (check Business/Organization Use) --
     // Draw an X or checkmark next to "Business/Organization Use"
-    fill(42, 175, "✓", { bold: true, color: NAVY, size: 9 });
+    fill(42, 175, "X", { bold: true, color: NAVY, size: 9 });
 
-    // ── SECTION 4 — Applicant Name ──────────────────────────────────────
+    // -- SECTION 4 - Applicant Name --------------------------------------
     // 4a Last Name
     fill(42, 225, clientLastName, { bold: true });
     // 4b First Name
     fill(195, 225, clientFirstName);
 
-    // ── SECTION 7 — Business/Organization Info (pre-filled) ────────────
+    // -- SECTION 7 - Business/Organization Info (pre-filled) ------------
     // 7a Business name
     fill(42, 430, businessName, { bold: true });
     // 7b Type of Business
@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
     // 7g Country
     fill(370, 478, "United States");
 
-    // ── PRE-FILLED NOTICE BANNER ────────────────────────────────────────
+    // -- PRE-FILLED NOTICE BANNER ----------------------------------------
     page1.drawRectangle({
       x: 36,
       y: yFromTop(40),
@@ -92,7 +92,7 @@ export async function GET(req: NextRequest) {
       borderColor: TEAL,
       borderWidth: 1.2,
     });
-    fill(44, 22, `Pre-filled for: ${clientName}  |  ${businessName}  |  AI Business Centers LLC  ·  125 N 9th Street, Frederick, OK 73542`, {
+    fill(44, 22, `Pre-filled for: ${clientName}  |  ${businessName}  |  AI Business Centers LLC  .  125 N 9th Street, Frederick, OK 73542`, {
       size: 7,
       color: NAVY,
     });
@@ -101,7 +101,7 @@ export async function GET(req: NextRequest) {
       color: DARK_GRAY,
     });
 
-    // ── REQUIRED ACTION BOX (bottom) ────────────────────────────────────
+    // -- REQUIRED ACTION BOX (bottom) ------------------------------------
     page1.drawRectangle({
       x: 36,
       y: yFromTop(792 - 18),   // very top strip
@@ -111,7 +111,7 @@ export async function GET(req: NextRequest) {
       borderColor: RED,
       borderWidth: 1,
     });
-    fill(44, 7, "⚠  REQUIRED: This form must be notarized. Upload completed form + 2 valid photo IDs at portal.aibusinesscenters.com → Documents → Address Activation.", {
+    fill(44, 7, "** REQUIRED: This form must be notarized. Upload completed form + 2 valid photo IDs at portal.aibusinesscenters.com -> Documents -> Address Activation.", {
       size: 6.5,
       bold: true,
       color: RED,
