@@ -5,7 +5,6 @@ import {
   LayoutDashboard,
   Users,
   FolderOpen,
-  UploadCloud,
   FileText,
   Package,
   Settings,

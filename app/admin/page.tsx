@@ -144,7 +144,7 @@ export default function AdminOverview() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { label: "Add Client", href: "/admin/clients/new", icon: Users },
-            { label: "Upload Document", href: "/admin/documents/upload", icon: FileText },
+            { label: "Upload Document", href: "/admin/documents", icon: FileText },
             { label: "Review Submissions", href: "/admin/submissions", icon: Clock },
             { label: "Manage Units", href: "/admin/units", icon: Package },
           ].map(({ label, href, icon: Icon }) => (
