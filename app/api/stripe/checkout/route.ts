@@ -3,18 +3,76 @@ import Stripe from "stripe";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-const PRICE_MAP: Record<string, { amount: number; name: string; mode: "payment" | "subscription" }> = {
+const AIBC_LOGO_URL = "https://www.aibusinesscenters.com/aibc-logo-transparent.png";
+
+const PRICE_MAP: Record<
+  string,
+  {
+    amount: number;
+    name: string;
+    description: string;
+    mode: "payment" | "subscription";
+  }
+> = {
   // Subscription plans
-  plan_essentials: { amount: 5900, name: "Business Essentials", mode: "subscription" },
-  plan_plus: { amount: 9900, name: "Business Plus", mode: "subscription" },
-  plan_pro: { amount: 14900, name: "Business Pro", mode: "subscription" },
+  plan_essentials: {
+    amount: 5900,
+    name: "Business Essentials",
+    description:
+      "Professional business address at 125 N 9th St, Frederick OK. Includes mail handling, 30 items/mo, scans, and forwarding.",
+    mode: "subscription",
+  },
+  plan_plus: {
+    amount: 9900,
+    name: "Business Plus",
+    description:
+      "Full-service mail management for active businesses. 75 items/mo, scans, check deposits, and shredding included.",
+    mode: "subscription",
+  },
+  plan_pro: {
+    amount: 14900,
+    name: "Business Pro",
+    description:
+      "Concierge-level mail suite. Unlimited mail, scans, and pages. Built for high-volume operators.",
+    mode: "subscription",
+  },
   // Add-ons
-  addon_credit: { amount: 24900, name: "Business Credit Reporting", mode: "subscription" },
+  addon_credit: {
+    amount: 24900,
+    name: "Business Credit Reporting",
+    description:
+      "Monthly reporting to D&B, Experian Business, and Equifax Business. Builds your business credit profile every month.",
+    mode: "subscription",
+  },
   // One-time services
-  ein_filing: { amount: 10000, name: "EIN Filing", mode: "payment" },
-  llc_formation: { amount: 59900, name: "LLC / Corp Formation", mode: "payment" },
-  registered_agent: { amount: 15900, name: "Registered Agent (Annual)", mode: "payment" },
-  fundability_dashboard: { amount: 99700, name: "Fundability Dashboard", mode: "payment" },
+  ein_filing: {
+    amount: 10000,
+    name: "EIN Filing",
+    description:
+      "We file your EIN with the IRS so you can open business accounts and establish credit immediately.",
+    mode: "payment",
+  },
+  llc_formation: {
+    amount: 59900,
+    name: "LLC / Corp Formation",
+    description:
+      "Full LLC or Corporation formation including state filing, registered agent setup, and operating agreement.",
+    mode: "payment",
+  },
+  registered_agent: {
+    amount: 15900,
+    name: "Registered Agent (Annual)",
+    description:
+      "Annual registered agent service. We receive legal documents and official notices on your behalf.",
+    mode: "payment",
+  },
+  fundability_dashboard: {
+    amount: 99700,
+    name: "Fundability Dashboard",
+    description:
+      "One-time access to your complete business fundability analysis, credit blueprint, and funding roadmap.",
+    mode: "payment",
+  },
 };
 
 export async function POST(request: NextRequest) {
@@ -30,12 +88,25 @@ export async function POST(request: NextRequest) {
 
   const session = await stripe.checkout.sessions.create({
     mode: priceConfig.mode,
+    ...(priceConfig.mode === "payment" ? { submit_type: "pay" } : {}),
     customer_email: email,
+    custom_text: {
+      submit: {
+        message:
+          priceConfig.mode === "subscription"
+            ? "Secure your AIBC membership and start building your business presence today."
+            : "Complete your secure purchase and we’ll start processing your AIBC service right away.",
+      },
+    },
     line_items: [
       {
         price_data: {
           currency: "usd",
-          product_data: { name: priceConfig.name },
+          product_data: {
+            name: priceConfig.name,
+            description: priceConfig.description,
+            images: [AIBC_LOGO_URL],
+          },
           unit_amount: priceConfig.amount,
           ...(priceConfig.mode === "subscription" ? { recurring: { interval: "month" } } : {}),
         },
