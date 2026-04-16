@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Mail, Send, CreditCard, BarChart2, Settings, LayoutDashboard, LogOut, Layers, FolderOpen } from "lucide-react";
+import { Mail, Send, CreditCard, BarChart2, Settings, LayoutDashboard, LogOut, Layers, FolderOpen, Landmark } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -10,6 +10,7 @@ const navItems = [
   { href: "/dashboard/requests", icon: Send, label: "Requests" },
   { href: "/dashboard/credit", icon: BarChart2, label: "Credit" },
   { href: "/dashboard/billing", icon: CreditCard, label: "Billing" },
+  { href: "/dashboard/tradeline", icon: Landmark, label: "Trade Line" },
   { href: "/dashboard/tools", icon: Layers, label: "Tools" },
   { href: "/dashboard/documents", icon: FolderOpen, label: "Documents" },
   { href: "/dashboard/settings", icon: Settings, label: "Settings" },
