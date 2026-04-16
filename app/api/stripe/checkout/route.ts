@@ -44,6 +44,30 @@ const PRICE_MAP: Record<
       "Monthly reporting to D&B, Experian Business, and Equifax Business. Builds your business credit profile every month.",
     mode: "subscription",
   },
+  tradeline_5k: {
+    amount: 9700,
+    name: "AIBC $5,000 Business Trade Line",
+    description: "AIBC $5,000 Business Trade Line — reported monthly to all 3 bureaus",
+    mode: "subscription",
+  },
+  tradeline_10k: {
+    amount: 19700,
+    name: "AIBC $10,000 Business Trade Line",
+    description: "AIBC $10,000 Business Trade Line — reported monthly to all 3 bureaus",
+    mode: "subscription",
+  },
+  tradeline_25k: {
+    amount: 39700,
+    name: "AIBC $25,000 Business Trade Line",
+    description: "AIBC $25,000 Business Trade Line — reported monthly to all 3 bureaus",
+    mode: "subscription",
+  },
+  tradeline_50k: {
+    amount: 59700,
+    name: "AIBC $50,000 Business Trade Line",
+    description: "AIBC $50,000 Business Trade Line — reported monthly to all 3 bureaus",
+    mode: "subscription",
+  },
   // One-time services
   ein_filing: {
     amount: 10000,

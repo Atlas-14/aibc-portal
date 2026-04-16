@@ -3,7 +3,7 @@ import { useState } from "react";
 import { PLANS } from "@/lib/supabase";
 import type { ClientPlan } from "@/lib/supabase";
 import paymentLinks from "@/lib/payment-links.json";
-import { Package, CreditCard } from "lucide-react";
+import { CreditCard, Loader2, Package } from "lucide-react";
 
 const ADD_ONS = [
   {
@@ -12,6 +12,39 @@ const ADD_ONS = [
     description: "D&B, Experian Business, Equifax Business reporting",
     stripe: paymentLinks.business_credit_addon,
   },
+];
+
+const TRADE_LINES = [
+  {
+    name: "$5,000 Trade Line",
+    amount: "$5,000",
+    price: "$97/mo",
+    priceKey: "tradeline_5k",
+  },
+  {
+    name: "$10,000 Trade Line",
+    amount: "$10,000",
+    price: "$197/mo",
+    priceKey: "tradeline_10k",
+  },
+  {
+    name: "$25,000 Trade Line",
+    amount: "$25,000",
+    price: "$397/mo",
+    priceKey: "tradeline_25k",
+  },
+  {
+    name: "$50,000 Trade Line",
+    amount: "$50,000",
+    price: "$597/mo",
+    priceKey: "tradeline_50k",
+  },
+];
+
+const BUREAUS = [
+  { label: "D&B", badge: "D" },
+  { label: "Experian Business", badge: "E" },
+  { label: "Equifax Business", badge: "Q" },
 ];
 
 const ONE_TIME = [
@@ -27,6 +60,7 @@ export default function BillingPage() {
   const [referralName, setReferralName] = useState("");
   const [referralEmail, setReferralEmail] = useState("");
   const [referralMessage, setReferralMessage] = useState("");
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
 
   const handleReferralSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -49,6 +83,47 @@ export default function BillingPage() {
     setReferralMessage("Thanks! We'll reach out to them.");
   };
 
+  const handleCheckout = async (priceKey: string) => {
+    if (typeof window === "undefined") return;
+
+    const savedEmail = localStorage.getItem("aibc_customer_email") || "";
+    const email = window.prompt("Enter your billing email to continue.", savedEmail)?.trim();
+
+    if (!email) return;
+
+    setCheckoutLoading(priceKey);
+
+    try {
+      localStorage.setItem("aibc_customer_email", email);
+
+      const response = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          priceKey,
+          email,
+          successUrl: `${window.location.origin}/dashboard/billing?success=true`,
+          cancelUrl: `${window.location.origin}/dashboard/billing`,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.url) {
+        throw new Error(data.error || "Unable to start checkout");
+      }
+
+      window.location.href = data.url;
+    } catch (error) {
+      console.error("Stripe checkout error", error);
+      window.alert("We couldn't start checkout right now. Please try again in a moment.");
+    } finally {
+      setCheckoutLoading(null);
+    }
+  };
+
   return (
     <div className="p-6 lg:p-10 max-w-4xl">
       <div className="mb-8">
@@ -56,7 +131,6 @@ export default function BillingPage() {
         <h1 className="text-3xl font-bold text-white">Your Plan & Billing</h1>
       </div>
 
-      {/* Ownership CTA */}
       <div className="glass-card rounded-3xl border border-white/10 p-6 mb-6 flex flex-col gap-3 lg:flex-row lg:items-center">
         <div className="border-l-4 border-[#36EAEA]/80 pl-4">
           <p className="text-xs uppercase tracking-widest text-[#36EAEA]/70">Deeded Units</p>
@@ -76,7 +150,6 @@ export default function BillingPage() {
         </a>
       </div>
 
-      {/* Current plan */}
       <div className="glass-card rounded-3xl border border-teal-400/30 p-6 mb-6 shadow-[0_25px_80px_rgba(4,13,26,0.45)]">
         <div className="flex items-start justify-between mb-4">
           <div>
@@ -85,7 +158,10 @@ export default function BillingPage() {
               <span className="text-xs text-[#36EAEA] uppercase tracking-widest">Current Plan</span>
             </div>
             <h2 className="text-xl font-bold text-white">{plan.name}</h2>
-            <p className="text-[#36EAEA] font-bold text-2xl mt-1">${plan.price}<span className="text-sm font-normal text-[#E6E9ED]/50">/mo</span></p>
+            <p className="text-[#36EAEA] font-bold text-2xl mt-1">
+              ${plan.price}
+              <span className="text-sm font-normal text-[#E6E9ED]/50">/mo</span>
+            </p>
           </div>
           <span className="glass-pill text-[#36EAEA] text-xs font-bold px-3 py-1">Active</span>
         </div>
@@ -103,7 +179,6 @@ export default function BillingPage() {
         </div>
       </div>
 
-      {/* Add-ons */}
       <div className="mb-6">
         <p className="text-xs uppercase tracking-widest text-[#E6E9ED]/40 mb-3">Add-Ons</p>
         {ADD_ONS.map((addon) => (
@@ -127,7 +202,66 @@ export default function BillingPage() {
         ))}
       </div>
 
-      {/* One-time services */}
+      <div className="mb-6 glass-card rounded-3xl border border-teal-400/20 p-6 shadow-[0_25px_80px_rgba(4,13,26,0.35)]">
+        <div className="mb-5">
+          <p className="text-xs uppercase tracking-widest text-[#36EAEA]/70 mb-2">Business Trade Lines</p>
+          <h2 className="text-2xl font-bold text-white mb-2">Business Trade Lines</h2>
+          <p className="text-sm text-white/70 max-w-3xl">
+            Build your business credit profile with a reported AIBC trade line. Payments reported monthly to D&amp;B,
+            Experian Business, and Equifax Business.
+          </p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {TRADE_LINES.map((tradeLine) => (
+            <div
+              key={tradeLine.priceKey}
+              className="rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(54,234,234,0.08),rgba(255,255,255,0.03))] p-5 shadow-[0_18px_45px_rgba(4,13,26,0.35)]"
+            >
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.25em] text-[#36EAEA]/70">AIBC Reported Limit</p>
+                  <h3 className="mt-2 text-2xl font-bold text-white">{tradeLine.amount}</h3>
+                </div>
+                <span className="rounded-full border border-[#36EAEA]/25 bg-[#36EAEA]/10 px-3 py-1 text-xs font-semibold text-[#36EAEA]">
+                  {tradeLine.price}
+                </span>
+              </div>
+
+              <p className="text-sm font-medium text-white/85">{tradeLine.name}</p>
+
+              <div className="mt-4 space-y-2">
+                {BUREAUS.map((bureau) => (
+                  <div
+                    key={bureau.label}
+                    className="flex items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-xs text-white/70"
+                  >
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#36EAEA]/15 text-[11px] font-bold text-[#36EAEA]">
+                      {bureau.badge}
+                    </span>
+                    <span>{bureau.label}</span>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleCheckout(tradeLine.priceKey)}
+                disabled={checkoutLoading === tradeLine.priceKey}
+                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#36EAEA] px-4 py-3 text-sm font-semibold text-[#040d1a] shadow-[0_20px_45px_rgba(54,234,234,0.22)] transition-colors hover:bg-[#2fd4d4] disabled:cursor-not-allowed disabled:bg-[#36EAEA]/60"
+              >
+                {checkoutLoading === tradeLine.priceKey ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Subscribe
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <p className="mt-4 text-xs text-white/50">
+          Requires active AIBC address plan. Credit agreement required prior to activation.
+        </p>
+      </div>
+
       <div>
         <p className="text-xs uppercase tracking-widest text-[#E6E9ED]/40 mb-3">One-Time Services</p>
         <div className="grid grid-cols-2 gap-3">
@@ -147,7 +281,6 @@ export default function BillingPage() {
         </div>
       </div>
 
-      {/* Referral program */}
       <div className="mt-6 glass-card rounded-2xl border-white/10 p-6">
         <div className="flex flex-col gap-2 mb-4">
           <p className="text-xs uppercase tracking-widest text-[#36EAEA]/70">Growth Rewards</p>
