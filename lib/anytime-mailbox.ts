@@ -6,6 +6,20 @@
 
 const ATM_BASE = 'https://api.anytimemailbox.com/v1';
 const ATM_KEY = process.env.ANYTIME_MAILBOX_API_KEY!;
+export const ATM_PENDING_SETUP_VALUE = 'PENDING_SETUP';
+
+/**
+ * The Anytime Mailbox operator ID identifies the white-label operator account
+ * that owns and manages AIBC mailboxes. Mail endpoints should block until this
+ * is configured, because mailbox records are scoped under that operator setup.
+ */
+export function getAnytimeMailboxOperatorId() {
+  const operatorId = process.env.ANYTIME_MAILBOX_OPERATOR_ID?.trim();
+  if (!operatorId || operatorId === ATM_PENDING_SETUP_VALUE) {
+    return null;
+  }
+  return operatorId;
+}
 
 async function atmFetch(path: string, options: RequestInit = {}) {
   const res = await fetch(`${ATM_BASE}${path}`, {

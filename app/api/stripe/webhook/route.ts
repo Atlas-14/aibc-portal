@@ -7,6 +7,12 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const getSupabase = () =>
   createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
+const PLAN_PRICE_MAP = {
+  plan_essentials: "essentials",
+  plan_plus: "plus",
+  plan_pro: "pro",
+} as const;
+
 const TRADELINE_PRICE_MAP: Record<string, { tier: "5k" | "10k" | "25k" | "50k"; creditLimit: number; monthlyFee: number }> = {
   tradeline_5k: { tier: "5k", creditLimit: 5000, monthlyFee: 9700 },
   tradeline_10k: { tier: "10k", creditLimit: 10000, monthlyFee: 19700 },
@@ -37,17 +43,55 @@ export async function POST(request: NextRequest) {
       const priceKey = session.metadata?.priceKey;
       console.log("Payment completed:", session.customer_email, priceKey);
 
+      const email = session.customer_email || session.customer_details?.email;
+      const supabase = getSupabase();
+
+      const plan = priceKey ? PLAN_PRICE_MAP[priceKey as keyof typeof PLAN_PRICE_MAP] : null;
+      if (plan) {
+        if (!email) {
+          console.error("Plan checkout missing customer email", session.id);
+          break;
+        }
+
+        const { error: insertClientError } = await supabase.from("clients").upsert(
+          {
+            email,
+            full_name: session.customer_details?.name || email,
+            plan,
+            status: "pending",
+          },
+          { onConflict: "email" }
+        );
+
+        if (insertClientError) {
+          console.error("Unable to create client from plan checkout", insertClientError.message);
+        }
+      }
+
+      if (priceKey === "addon_credit") {
+        if (!email) {
+          console.error("Credit addon checkout missing customer email", session.id);
+          break;
+        }
+
+        const { error: creditAddonError } = await supabase
+          .from("clients")
+          .update({ credit_addon: true })
+          .eq("email", email);
+
+        if (creditAddonError) {
+          console.error("Unable to enable credit addon for client", creditAddonError.message);
+        }
+      }
+
       const tradelineConfig = priceKey ? TRADELINE_PRICE_MAP[priceKey] : null;
       if (tradelineConfig) {
-        const email = session.customer_email || session.customer_details?.email;
-        const stripeSubscriptionId = typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
-
         if (!email) {
           console.error("Trade line checkout missing customer email", session.id);
           break;
         }
 
-        const supabase = getSupabase();
+        const stripeSubscriptionId = typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
 
         const { data: clientRecord, error: clientError } = await supabase
           .from("clients")
