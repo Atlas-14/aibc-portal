@@ -28,9 +28,16 @@ export default function MailPage() {
 
   useEffect(() => {
     fetch("/api/mail")
-      .then((r) => r.json())
-      .then((d) => {
-        setItems(d.items || []);
+      .then(async (r) => ({ ok: r.ok, data: await r.json() }))
+      .then(({ ok, data }) => {
+        if (!ok) {
+          setError(data.message || data.error || "Unable to load mail. Mailbox not yet connected.");
+          setItems([]);
+          setLoading(false);
+          return;
+        }
+
+        setItems(data.items || []);
         setLoading(false);
       })
       .catch(() => {
