@@ -20,6 +20,18 @@ export type CreateMailboxInput = {
   planTier?: string | null;
 };
 
+export type ForwardAddressInput = {
+  fullName?: string;
+  company?: string;
+  address1: string;
+  address2?: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country?: string;
+  shippingMethod?: string;
+};
+
 export function getAnytimeMailboxOperatorId() {
   const operatorId = process.env.ANYTIME_MAILBOX_OPERATOR_ID?.trim();
   if (!operatorId || operatorId === ATM_PENDING_SETUP_VALUE) {
@@ -29,7 +41,7 @@ export function getAnytimeMailboxOperatorId() {
 }
 
 function appendFormValue(params: URLSearchParams, key: string, value: unknown) {
-  if (value === null || value === undefined) return;
+  if (value === null || value === undefined || value === '') return;
 
   if (Array.isArray(value)) {
     for (const item of value) appendFormValue(params, `${key}[]`, item);
@@ -61,8 +73,8 @@ export async function atmFetch(path: string, method = 'GET', formData?: Record<s
   }
 
   const headers: Record<string, string> = {
-    'Authorization': `Bearer ${ATM_KEY}`,
-    'Accept': 'application/json',
+    Authorization: `Bearer ${ATM_KEY}`,
+    Accept: 'application/json',
   };
 
   const options: RequestInit = {
@@ -86,6 +98,107 @@ export async function atmFetch(path: string, method = 'GET', formData?: Record<s
   }
 
   return data;
+}
+
+async function atmFetchFirst(
+  candidates: string[],
+  method = 'GET',
+  formData?: Record<string, unknown>
+) {
+  let lastError: Error | null = null;
+
+  for (const path of candidates) {
+    try {
+      return await atmFetch(path, method, formData);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+    }
+  }
+
+  throw lastError ?? new Error('Anytime Mailbox request failed');
+}
+
+function extractList<T = Record<string, unknown>>(data: unknown, collectionKeys: string[]) {
+  if (!data || typeof data !== 'object') return [] as T[];
+
+  const root = data as Record<string, unknown>;
+  const nested = typeof root.data === 'object' && root.data !== null ? (root.data as Record<string, unknown>) : null;
+
+  for (const key of collectionKeys) {
+    const direct = root[key];
+    if (Array.isArray(direct)) return direct as T[];
+
+    const fromNested = nested?.[key];
+    if (Array.isArray(fromNested)) return fromNested as T[];
+  }
+
+  return [] as T[];
+}
+
+function extractRecord(data: unknown) {
+  if (!data || typeof data !== 'object') return null;
+  const root = data as Record<string, unknown>;
+  if (typeof root.data === 'object' && root.data !== null) {
+    return root.data as Record<string, unknown>;
+  }
+  return root;
+}
+
+async function resolveMailboxName(renterId: string) {
+  const mailboxes = await getRenterMailboxes(renterId);
+  const primary = mailboxes[0];
+  const mailboxName = String(primary?.name || primary?.mailbox_name || '').trim();
+
+  if (!mailboxName) {
+    throw new Error(`No mailbox assigned for renter ${renterId}`);
+  }
+
+  return mailboxName;
+}
+
+function buildMailCollectionCandidates(renterId: string, mailboxName: string, params?: { page?: number; limit?: number }) {
+  const query = new URLSearchParams();
+  if (params?.page !== undefined) query.set('page', String(params.page));
+  if (params?.limit !== undefined) query.set('limit', String(params.limit));
+  const suffix = query.toString() ? `?${query.toString()}` : '';
+
+  return [
+    `/mailboxes/${encodeURIComponent(mailboxName)}/mail_pieces${suffix}`,
+    `/mailboxes/${encodeURIComponent(mailboxName)}/mail${suffix}`,
+    `/renters/${renterId}/mailboxes/${encodeURIComponent(mailboxName)}/mail_pieces${suffix}`,
+    `/renters/${renterId}/mailboxes/${encodeURIComponent(mailboxName)}/mail${suffix}`,
+  ];
+}
+
+function buildMailActionCandidates(
+  renterId: string,
+  mailboxName: string,
+  mailPieceId: string,
+  actionPaths: string[]
+) {
+  const encodedMailbox = encodeURIComponent(mailboxName);
+  const encodedPiece = encodeURIComponent(mailPieceId);
+
+  return actionPaths.flatMap((actionPath) => [
+    `/mailboxes/${encodedMailbox}/mail_pieces/${encodedPiece}/${actionPath}`,
+    `/mailboxes/${encodedMailbox}/mail/${encodedPiece}/${actionPath}`,
+    `/renters/${renterId}/mailboxes/${encodedMailbox}/mail_pieces/${encodedPiece}/${actionPath}`,
+    `/renters/${renterId}/mailboxes/${encodedMailbox}/mail/${encodedPiece}/${actionPath}`,
+  ]);
+}
+
+function normalizeForwardPayload(address: ForwardAddressInput) {
+  return {
+    recipient_name: address.fullName,
+    company: address.company,
+    address_1: address.address1,
+    address_2: address.address2,
+    city: address.city,
+    state: address.state,
+    zip: address.postalCode,
+    country: address.country || 'US',
+    shipping_method: address.shippingMethod,
+  };
 }
 
 export async function createMailboxForClient(input: CreateMailboxInput) {
@@ -121,12 +234,7 @@ export async function createMailboxForClient(input: CreateMailboxInput) {
   }
 
   const mailboxList = await atmFetch('/mailboxes?status=available&limit=1');
-  const mailboxes =
-    (typeof mailboxList === 'object' && mailboxList !== null
-      ? (mailboxList as { data?: { mailboxes?: Array<Record<string, unknown>> }; mailboxes?: Array<Record<string, unknown>> }).data?.mailboxes ??
-        (mailboxList as { mailboxes?: Array<Record<string, unknown>> }).mailboxes ??
-        []
-      : []);
+  const mailboxes = extractList<Record<string, unknown>>(mailboxList, ['mailboxes']);
 
   const mailboxName = String(mailboxes[0]?.name || mailboxes[0]?.mailbox_name || '').trim();
 
@@ -156,11 +264,7 @@ export async function deactivateRenter(renterId: string) {
 
 export async function getRenterMailboxes(renterId: string) {
   const data = await atmFetch(`/renters/${renterId}/mailboxes`);
-  return typeof data === 'object' && data !== null
-    ? ((data as { data?: { mailboxes?: Array<Record<string, unknown>> }; mailboxes?: Array<Record<string, unknown>> }).data?.mailboxes ??
-        (data as { mailboxes?: Array<Record<string, unknown>> }).mailboxes ??
-        [])
-    : [];
+  return extractList<Record<string, unknown>>(data, ['mailboxes']);
 }
 
 export async function unassignMailbox(mailboxName: string) {
@@ -169,36 +273,72 @@ export async function unassignMailbox(mailboxName: string) {
   });
 }
 
+export async function getMailItems(renterId: string, params?: { page?: number; limit?: number }) {
+  const mailboxName = await resolveMailboxName(renterId);
+  const data = await atmFetchFirst(buildMailCollectionCandidates(renterId, mailboxName, params));
+  return extractList<Record<string, unknown>>(data, ['mail_pieces', 'mailPieces', 'items', 'mail']);
+}
+
+export async function getMailItem(renterId: string, mailPieceId: string) {
+  const mailboxName = await resolveMailboxName(renterId);
+  const data = await atmFetchFirst(
+    [
+      `/mailboxes/${encodeURIComponent(mailboxName)}/mail_pieces/${encodeURIComponent(mailPieceId)}`,
+      `/mailboxes/${encodeURIComponent(mailboxName)}/mail/${encodeURIComponent(mailPieceId)}`,
+      `/renters/${renterId}/mailboxes/${encodeURIComponent(mailboxName)}/mail_pieces/${encodeURIComponent(mailPieceId)}`,
+      `/renters/${renterId}/mailboxes/${encodeURIComponent(mailboxName)}/mail/${encodeURIComponent(mailPieceId)}`,
+    ]
+  );
+
+  return extractRecord(data);
+}
+
+export async function requestScan(renterId: string, mailPieceId: string) {
+  const mailboxName = await resolveMailboxName(renterId);
+  return atmFetchFirst(
+    buildMailActionCandidates(renterId, mailboxName, mailPieceId, ['scan_requests', 'scan']) ,
+    'POST'
+  );
+}
+
+export async function requestForward(renterId: string, mailPieceId: string, forwardAddress: ForwardAddressInput) {
+  const mailboxName = await resolveMailboxName(renterId);
+  return atmFetchFirst(
+    buildMailActionCandidates(renterId, mailboxName, mailPieceId, ['forward_requests', 'forward']),
+    'POST',
+    normalizeForwardPayload(forwardAddress)
+  );
+}
+
+export async function requestShred(renterId: string, mailPieceId: string) {
+  const mailboxName = await resolveMailboxName(renterId);
+  return atmFetchFirst(
+    buildMailActionCandidates(renterId, mailboxName, mailPieceId, ['shred_requests', 'shred']),
+    'POST'
+  );
+}
+
+export async function requestOpen(renterId: string, mailPieceId: string) {
+  const mailboxName = await resolveMailboxName(renterId);
+  return atmFetchFirst(
+    buildMailActionCandidates(renterId, mailboxName, mailPieceId, ['open_requests', 'open', 'scan_requests']),
+    'POST'
+  );
+}
+
 export const atmClient = {
-  getMailItems: (mailboxId: string, params?: { page?: number; limit?: number }) =>
-    atmFetch(`/mailboxes/${mailboxId}/mail_pieces?${new URLSearchParams(
-      Object.entries(params || {}).reduce<Record<string, string>>((acc, [key, value]) => {
-        if (value !== undefined && value !== null) acc[key] = String(value);
-        return acc;
-      }, {})
-    ).toString()}`),
-
-  getMailItem: (mailboxId: string, itemId: string) =>
-    atmFetch(`/mailboxes/${mailboxId}/mail_pieces/${itemId}`),
-
-  requestScan: (mailboxId: string, itemId: string) =>
-    atmFetch(`/mailboxes/${mailboxId}/mail_pieces/${itemId}/scan_requests`, 'POST'),
-
-  requestForward: (mailboxId: string, itemId: string, address: Record<string, string>) =>
-    atmFetch(`/mailboxes/${mailboxId}/mail_pieces/${itemId}/forward_requests`, 'POST', address),
-
-  requestShred: (mailboxId: string, itemId: string) =>
-    atmFetch(`/mailboxes/${mailboxId}/mail_pieces/${itemId}/shred_requests`, 'POST'),
-
-  requestRecycle: (mailboxId: string, itemId: string) =>
-    atmFetch(`/mailboxes/${mailboxId}/mail_pieces/${itemId}/recycle_requests`, 'POST'),
-
-  requestCheckDeposit: (mailboxId: string, itemId: string, bankInfo: Record<string, string>) =>
-    atmFetch(`/mailboxes/${mailboxId}/mail_pieces/${itemId}/check_deposit_requests`, 'POST', bankInfo),
-
-  getMailbox: (mailboxId: string) =>
-    atmFetch(`/mailboxes/${mailboxId}`),
-
-  getRequests: (mailboxId: string) =>
-    atmFetch(`/mailboxes/${mailboxId}/requests`),
+  getMailItems,
+  getMailItem,
+  requestScan,
+  requestForward,
+  requestShred,
+  requestOpen,
+  getMailbox: async (renterId: string) => {
+    const mailboxName = await resolveMailboxName(renterId);
+    return atmFetch(`/mailboxes/${encodeURIComponent(mailboxName)}`);
+  },
+  getRequests: async (renterId: string) => {
+    const mailboxName = await resolveMailboxName(renterId);
+    return atmFetch(`/mailboxes/${encodeURIComponent(mailboxName)}/requests`);
+  },
 };
