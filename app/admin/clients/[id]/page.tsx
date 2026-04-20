@@ -1,7 +1,24 @@
 "use client";
-import { useEffect, useState, use } from "react";
-import { FileText, UploadCloud, ChevronLeft, Edit2, Check, X, Package, CreditCard, Mail } from "lucide-react";
+
+import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import {
+  CreditCard,
+  FileText,
+  Mail,
+  Package,
+  Send,
+  Trash2,
+  UploadCloud,
+  UserCog,
+} from "lucide-react";
+import {
+  AdminPageHeader,
+  BackLink,
+  ConfirmDialog,
+  EmptyState,
+  showAdminToast,
+} from "@/components/admin/AdminPrimitives";
 
 type Client = {
   id: string;
@@ -16,6 +33,7 @@ type Client = {
   mailboxId: string | null;
   notes: string | null;
   createdAt: string;
+  lastActive?: string;
 };
 
 type AdminDoc = {
@@ -23,8 +41,10 @@ type AdminDoc = {
   fileName: string;
   category: string;
   fileSize: number;
+  fileType?: string;
   notes: string | null;
   uploadedAt: string;
+  filePath?: string;
 };
 
 type Submission = {
@@ -34,13 +54,20 @@ type Submission = {
   status: string;
   submittedAt: string;
   adminNotes: string | null;
+  fileType?: string;
+  filePath?: string;
 };
 
-const PLAN_LABELS: Record<string, string> = {
-  essentials: "Business Essentials — $59/mo",
-  plus: "Business Plus — $99/mo",
-  pro: "Business Pro — $149/mo",
-};
+const PLAN_OPTIONS = ["essentials", "plus", "pro"];
+const STATUS_OPTIONS = ["active", "pending", "suspended"];
+const editableFields: Array<{ key: keyof Client; label: string; type?: string }> = [
+  { key: "fullName", label: "Full name" },
+  { key: "businessName", label: "Business name" },
+  { key: "email", label: "Email", type: "email" },
+  { key: "mailboxId", label: "Mailbox ID" },
+  { key: "unitNumber", label: "Unit number" },
+  { key: "notes", label: "Internal notes" },
+];
 
 export default function ClientDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -48,13 +75,11 @@ export default function ClientDetail({ params }: { params: Promise<{ id: string 
   const [docs, setDocs] = useState<AdminDoc[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
-  const [editData, setEditData] = useState<Partial<Client>>({});
-  const [saving, setSaving] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [editingField, setEditingField] = useState<keyof Client | null>(null);
+  const [draft, setDraft] = useState<Partial<Client>>({});
   const [creatingMailbox, setCreatingMailbox] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
-
-  // Upload state
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadCategory, setUploadCategory] = useState("General");
   const [uploadNotes, setUploadNotes] = useState("");
@@ -62,57 +87,58 @@ export default function ClientDetail({ params }: { params: Promise<{ id: string 
 
   useEffect(() => {
     Promise.all([
-      fetch(`/api/admin/clients/${id}`).then(r => r.json()),
-      fetch(`/api/admin/clients/${id}/documents`).then(r => r.json()),
-      fetch(`/api/admin/clients/${id}/submissions`).then(r => r.json()),
-    ]).then(([clientData, docsData, subsData]) => {
-      setClient(clientData.client ?? null);
-      setDocs(docsData.documents ?? []);
-      setSubmissions(subsData.submissions ?? []);
-      setLoading(false);
-    }).catch(() => setLoading(false));
+      fetch(`/api/admin/clients/${id}`).then((response) => response.json()),
+      fetch(`/api/admin/clients/${id}/documents`).then((response) => response.json()),
+      fetch(`/api/admin/clients/${id}/submissions`).then((response) => response.json()),
+    ])
+      .then(([clientData, docsData, submissionsData]) => {
+        setClient(clientData.client ?? null);
+        setDraft(clientData.client ?? {});
+        setDocs(docsData.documents ?? []);
+        setSubmissions(submissionsData.submissions ?? []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, [id]);
 
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 3000);
-    return () => clearTimeout(t);
-  }, [toast]);
-
-  const startEdit = () => {
-    setEditData({ ...client });
-    setEditing(true);
-  };
-
-  const saveEdit = async () => {
-    setSaving(true);
-    const res = await fetch(`/api/admin/clients/${id}`, {
+  const saveField = async (key?: keyof Client, value?: string | boolean | null) => {
+    if (!client) return;
+    const next = { ...draft, ...(key ? { [key]: value } : {}) };
+    setBusy(true);
+    const response = await fetch(`/api/admin/clients/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(editData),
+      body: JSON.stringify(next),
     });
-    if (res.ok) {
-      setClient(prev => ({ ...prev!, ...editData }));
-      setEditing(false);
-      setToast("Client updated");
+    if (response.ok) {
+      setClient((current) => (current ? { ...current, ...next } : current));
+      setDraft(next);
+      setEditingField(null);
+      showAdminToast({ type: "success", title: "Client updated", message: "Changes were saved instantly." });
+    } else {
+      showAdminToast({ type: "error", title: "Update failed", message: "Please try again." });
     }
-    setSaving(false);
+    setBusy(false);
   };
 
   const handleUpload = async () => {
     if (!uploadFile) return;
     setUploading(true);
-    const fd = new FormData();
-    fd.append("file", uploadFile);
-    fd.append("clientId", id);
-    fd.append("category", uploadCategory);
-    fd.append("notes", uploadNotes);
-    const res = await fetch("/api/admin/documents/upload", { method: "POST", body: fd });
-    if (res.ok) {
-      const data = await res.json();
-      setDocs(prev => [data.document, ...prev]);
-      setToast("Document uploaded to client portal");
-      setUploadFile(null); setUploadNotes("");
+    const formData = new FormData();
+    formData.append("file", uploadFile);
+    formData.append("clientId", id);
+    formData.append("category", uploadCategory);
+    formData.append("notes", uploadNotes);
+
+    const response = await fetch("/api/admin/documents/upload", { method: "POST", body: formData });
+    if (response.ok) {
+      const data = await response.json();
+      setDocs((current) => [data.document, ...current]);
+      setUploadFile(null);
+      setUploadNotes("");
+      showAdminToast({ type: "success", title: "Document uploaded", message: "The file is now available in the client portal." });
+    } else {
+      showAdminToast({ type: "error", title: "Upload failed", message: "The document could not be uploaded." });
     }
     setUploading(false);
   };
@@ -120,273 +146,307 @@ export default function ClientDetail({ params }: { params: Promise<{ id: string 
   const handleCreateMailbox = async () => {
     setCreatingMailbox(true);
     try {
-      const res = await fetch(`/api/admin/clients/${id}/create-mailbox`, { method: "POST" });
-      const data = await res.json();
-
-      if (!res.ok) {
-        setToast(data.error ?? "Unable to create mailbox");
+      const response = await fetch(`/api/admin/clients/${id}/create-mailbox`, { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) {
+        showAdminToast({ type: "error", title: "Mailbox failed", message: data.error ?? "Unable to create mailbox." });
         return;
       }
-
-      setClient(prev => prev ? { ...prev, mailboxId: data.mailboxId ?? prev.mailboxId } : prev);
-      setToast(data.alreadyExists ? "Mailbox already exists" : "Mailbox created successfully");
+      const mailboxId = data.mailboxId ?? client?.mailboxId ?? null;
+      setClient((current) => (current ? { ...current, mailboxId } : current));
+      setDraft((current) => ({ ...current, mailboxId }));
+      showAdminToast({ type: "success", title: data.alreadyExists ? "Mailbox already exists" : "Mailbox created", message: mailboxId ? `Mailbox ID ${mailboxId}` : "Mailbox is ready." });
     } catch {
-      setToast("Unable to create mailbox");
+      showAdminToast({ type: "error", title: "Mailbox failed", message: "Unable to create mailbox." });
     } finally {
       setCreatingMailbox(false);
     }
   };
 
-  if (loading) return <div className="p-10"><div className="h-8 w-64 rounded-xl bg-white/5 animate-pulse" /></div>;
-  if (!client) return <div className="p-10 text-white/60">Client not found</div>;
+  const toggleStatus = async () => {
+    if (!client) return;
+    const nextStatus = client.status === "suspended" ? "active" : "suspended";
+    await saveField("status", nextStatus);
+  };
+
+  const deleteClient = async () => {
+    setBusy(true);
+    const response = await fetch(`/api/admin/clients/${id}`, { method: "DELETE" });
+    if (response.ok) {
+      window.location.href = "/admin/clients";
+      return;
+    }
+    showAdminToast({ type: "error", title: "Delete failed", message: "The client could not be removed." });
+    setBusy(false);
+  };
+
+  const activity = useMemo(() => {
+    if (!client) return [];
+    return [
+      {
+        id: `joined-${client.id}`,
+        title: "Client account created",
+        meta: `${client.plan} plan started`,
+        at: client.createdAt,
+      },
+      ...docs.map((doc) => ({
+        id: `doc-${doc.id}`,
+        title: `Document uploaded: ${doc.fileName}`,
+        meta: doc.category,
+        at: doc.uploadedAt,
+      })),
+      ...submissions.map((submission) => ({
+        id: `submission-${submission.id}`,
+        title: `Submission received: ${submission.fileName}`,
+        meta: submission.status.replaceAll("_", " "),
+        at: submission.submittedAt,
+      })),
+      {
+        id: `status-${client.id}`,
+        title: `Account is currently ${client.status}`,
+        meta: client.mailboxId ? `Mailbox ${client.mailboxId}` : "Mailbox not created yet",
+        at: client.lastActive ?? client.createdAt,
+      },
+    ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+  }, [client, docs, submissions]);
+
+  if (loading) {
+    return <div className="p-10 text-sm text-white/50">Loading client profile…</div>;
+  }
+
+  if (!client) {
+    return (
+      <div className="mx-auto max-w-4xl p-6 lg:p-10">
+        <EmptyState icon={<UserCog className="h-6 w-6" />} title="Client not found" description="This record may have been removed, or the link is no longer valid." action={<BackLink href="/admin/clients" label="Back to clients" />} />
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 lg:p-10 max-w-5xl">
-      {toast && (
-        <div className="fixed top-6 right-6 z-50 bg-teal-400/20 border border-teal-400/30 text-teal-300 text-sm px-5 py-3 rounded-2xl shadow-xl">
-          {toast}
-        </div>
-      )}
-
-      <div className="mb-6">
-        <Link href="/admin/clients" className="inline-flex items-center gap-2 text-white/40 hover:text-white/70 text-sm transition-colors mb-4">
-          <ChevronLeft className="h-4 w-4" /> Back to Clients
-        </Link>
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-red-400 text-xs font-semibold uppercase tracking-widest mb-1">Client Profile</p>
-            <h1 className="text-3xl font-bold text-white">{client.fullName}</h1>
-            <p className="text-white/60 text-sm mt-1">{client.businessName} · {client.email}</p>
-          </div>
-          {!editing ? (
-            <div className="flex gap-2">
-              {!client.mailboxId && (
-                <button
-                  onClick={handleCreateMailbox}
-                  disabled={creatingMailbox}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl border border-teal-400/30 text-teal-300 hover:bg-teal-400/10 text-sm transition-all disabled:opacity-50"
-                >
-                  <Mail className="h-4 w-4" /> {creatingMailbox ? "Creating..." : "Create Mailbox"}
-                </button>
-              )}
-              <button onClick={startEdit} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 text-white/60 hover:text-white hover:bg-white/5 text-sm transition-all">
-                <Edit2 className="h-4 w-4" /> Edit
-              </button>
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              <button onClick={saveEdit} disabled={saving} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-400/20 border border-teal-400/30 text-teal-300 text-sm font-semibold hover:bg-teal-400/30 transition-all">
-                <Check className="h-4 w-4" /> {saving ? "Saving..." : "Save"}
-              </button>
-              <button onClick={() => setEditing(false)} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 text-white/60 text-sm hover:bg-white/5 transition-all">
-                <X className="h-4 w-4" /> Cancel
-              </button>
-            </div>
-          )}
-        </div>
+    <div className="mx-auto max-w-7xl p-6 lg:p-10">
+      <div className="mb-5">
+        <BackLink href="/admin/clients" label="Back to Clients" />
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6 mb-8">
-        {/* Client Info */}
-        <div className="lg:col-span-2 glass-card rounded-2xl border-white/10 p-6">
-          <p className="text-xs uppercase tracking-widest text-white/40 mb-4">Account Details</p>
-          {editing ? (
-            <div className="space-y-4">
-              {[
-                { label: "Full Name", key: "fullName", type: "text" },
-                { label: "Business Name", key: "businessName", type: "text" },
-                { label: "Email", key: "email", type: "email" },
-                { label: "Mailbox ID", key: "mailboxId", type: "text" },
-              ].map(({ label, key, type }) => (
-                <div key={key}>
-                  <label className="text-xs text-white/50 block mb-1">{label}</label>
-                  <input
-                    type={type}
-                    value={(editData as Record<string, string>)[key] ?? ""}
-                    onChange={(e) => setEditData(prev => ({ ...prev, [key]: e.target.value }))}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:border-teal-400/40"
-                  />
-                </div>
-              ))}
+      <AdminPageHeader
+        eyebrow="Client Profile"
+        title={client.fullName}
+        description={`${client.businessName || "No business name"} • ${client.email}`}
+        breadcrumbs={[
+          { label: "Admin", href: "/admin" },
+          { label: "Clients", href: "/admin/clients" },
+          { label: client.fullName },
+        ]}
+        action={
+          <button onClick={() => setConfirmDelete(true)} className="inline-flex items-center gap-2 rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm font-semibold text-red-200 transition hover:bg-red-400/20">
+            <Trash2 className="h-4 w-4" />
+            Delete Client
+          </button>
+        }
+      />
+
+      <div className="mb-8 grid gap-6 xl:grid-cols-[1.7fr_1fr]">
+        <div className="space-y-6">
+          <section className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+            <div className="mb-5 flex items-center justify-between">
               <div>
-                <label className="text-xs text-white/50 block mb-1">Plan</label>
-                <select
-                  value={editData.plan ?? client.plan}
-                  onChange={(e) => setEditData(prev => ({ ...prev, plan: e.target.value }))}
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none"
-                >
-                  <option value="essentials">Business Essentials — $59/mo</option>
-                  <option value="plus">Business Plus — $99/mo</option>
-                  <option value="pro">Business Pro — $149/mo</option>
-                </select>
-              </div>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 text-sm text-white/60 cursor-pointer">
-                  <input type="checkbox" checked={editData.creditAddon ?? client.creditAddon}
-                    onChange={(e) => setEditData(prev => ({ ...prev, creditAddon: e.target.checked }))}
-                    className="rounded" />
-                  Credit Reporting Add-on
-                </label>
-                <label className="flex items-center gap-2 text-sm text-white/60 cursor-pointer">
-                  <input type="checkbox" checked={editData.unitOwner ?? client.unitOwner}
-                    onChange={(e) => setEditData(prev => ({ ...prev, unitOwner: e.target.checked }))}
-                    className="rounded" />
-                  Unit Owner
-                </label>
-              </div>
-              <div>
-                <label className="text-xs text-white/50 block mb-1">Status</label>
-                <select
-                  value={editData.status ?? client.status}
-                  onChange={(e) => setEditData(prev => ({ ...prev, status: e.target.value }))}
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none"
-                >
-                  <option value="active">Active</option>
-                  <option value="pending">Pending</option>
-                  <option value="suspended">Suspended</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-xs text-white/50 block mb-1">Internal Notes</label>
-                <textarea rows={2} value={editData.notes ?? ""}
-                  onChange={(e) => setEditData(prev => ({ ...prev, notes: e.target.value }))}
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none"
-                />
+                <p className="text-xs uppercase tracking-[0.3em] text-white/35">Account details</p>
+                <p className="mt-1 text-sm text-white/55">Click any field to edit it inline.</p>
               </div>
             </div>
-          ) : (
             <div className="space-y-3">
-              {[
-                { label: "Email", value: client.email },
-                { label: "Plan", value: PLAN_LABELS[client.plan] ?? client.plan },
-                { label: "Status", value: client.status },
-                { label: "Mailbox ID", value: client.mailboxId ?? "Not set" },
-                { label: "Joined", value: new Date(client.createdAt).toLocaleDateString() },
-                ...(client.notes ? [{ label: "Notes", value: client.notes }] : []),
-              ].map(({ label, value }) => (
-                <div key={label} className="flex items-start justify-between py-2 border-b border-white/5">
-                  <span className="text-white/50 text-sm">{label}</span>
-                  <span className="text-white text-sm text-right max-w-xs">{value}</span>
+              {editableFields.map((field) => (
+                <div key={String(field.key)} className="rounded-[1.5rem] border border-white/8 bg-black/10 px-4 py-4">
+                  <p className="mb-2 text-xs uppercase tracking-[0.25em] text-white/35">{field.label}</p>
+                  {editingField === field.key ? (
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      {field.key === "notes" ? (
+                        <textarea
+                          autoFocus
+                          rows={3}
+                          value={String(draft[field.key] ?? "")}
+                          onChange={(event) => setDraft((current) => ({ ...current, [field.key]: event.target.value }))}
+                          className="min-h-24 flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white focus:border-[#36EAEA]/40 focus:outline-none"
+                        />
+                      ) : (
+                        <input
+                          autoFocus
+                          type={field.type ?? "text"}
+                          value={String(draft[field.key] ?? "")}
+                          onChange={(event) => setDraft((current) => ({ ...current, [field.key]: event.target.value }))}
+                          className="flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white focus:border-[#36EAEA]/40 focus:outline-none"
+                        />
+                      )}
+                      <div className="flex gap-2">
+                        <button onClick={() => saveField()} disabled={busy} className="rounded-2xl bg-[#36EAEA] px-4 py-3 text-sm font-semibold text-[#040d1a] transition hover:bg-[#5cf5f5] disabled:opacity-50">Save</button>
+                        <button onClick={() => { setEditingField(null); setDraft(client); }} className="rounded-2xl border border-white/10 px-4 py-3 text-sm text-white/70 transition hover:bg-white/5 hover:text-white">Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button onClick={() => setEditingField(field.key)} className="w-full text-left text-sm text-white transition hover:text-[#9af7f7]">
+                      {String(client[field.key] ?? "—")}
+                    </button>
+                  )}
+                </div>
+              ))}
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded-[1.5rem] border border-white/8 bg-black/10 px-4 py-4">
+                  <p className="mb-2 text-xs uppercase tracking-[0.25em] text-white/35">Plan</p>
+                  <select value={draft.plan ?? client.plan} onChange={(event) => { const value = event.target.value; setDraft((current) => ({ ...current, plan: value })); void saveField("plan", value); }} className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white focus:outline-none">
+                    {PLAN_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+                  </select>
+                </div>
+                <div className="rounded-[1.5rem] border border-white/8 bg-black/10 px-4 py-4">
+                  <p className="mb-2 text-xs uppercase tracking-[0.25em] text-white/35">Status</p>
+                  <select value={draft.status ?? client.status} onChange={(event) => { const value = event.target.value; setDraft((current) => ({ ...current, status: value })); void saveField("status", value); }} className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white focus:outline-none">
+                    {STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+            <div className="mb-5 flex items-center gap-3">
+              <UploadCloud className="h-5 w-5 text-[#36EAEA]" />
+              <div>
+                <h2 className="text-lg font-semibold text-white">Upload Document</h2>
+                <p className="text-sm text-white/55">Send a new file directly into this client&apos;s portal.</p>
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              <select value={uploadCategory} onChange={(event) => setUploadCategory(event.target.value)} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white focus:outline-none">
+                {["Compliance", "Address", "Banking", "Credit", "Contract", "General"].map((category) => <option key={category}>{category}</option>)}
+              </select>
+              <input value={uploadNotes} onChange={(event) => setUploadNotes(event.target.value)} placeholder="Notes for the client" className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none md:col-span-2" />
+              <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" onChange={(event) => setUploadFile(event.target.files?.[0] ?? null)} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70 file:mr-3 file:rounded-xl file:border-0 file:bg-[#36EAEA]/15 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-[#9af7f7] md:col-span-2" />
+              <button onClick={handleUpload} disabled={!uploadFile || uploading} className="rounded-2xl bg-[#36EAEA] px-4 py-3 text-sm font-semibold text-[#040d1a] transition hover:bg-[#5cf5f5] disabled:opacity-50">
+                {uploading ? "Uploading..." : "Upload"}
+              </button>
+            </div>
+          </section>
+
+          <div className="grid gap-6 xl:grid-cols-2">
+            <section className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+              <div className="mb-4 flex items-center gap-3">
+                <FileText className="h-5 w-5 text-[#36EAEA]" />
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Documents</h2>
+                  <p className="text-sm text-white/55">Files AIBC uploaded for this client.</p>
+                </div>
+              </div>
+              {docs.length ? (
+                <div className="space-y-3">
+                  {docs.map((doc) => (
+                    <a key={doc.id} href={`/api/admin/documents/${doc.id}/download`} className="flex items-start justify-between rounded-[1.5rem] border border-white/8 bg-black/10 p-4 transition hover:border-[#36EAEA]/20 hover:bg-black/15">
+                      <div>
+                        <p className="text-sm font-semibold text-white">{doc.fileName}</p>
+                        <p className="mt-1 text-xs text-white/45">{doc.category} • {(doc.fileSize / 1024).toFixed(0)} KB • {new Date(doc.uploadedAt).toLocaleString()}</p>
+                      </div>
+                      <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/60">Download</span>
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState title="No documents uploaded" description="Upload agreements, certificates, or onboarding documents so the client can access them immediately." />
+              )}
+            </section>
+
+            <section className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+              <div className="mb-4 flex items-center gap-3">
+                <Send className="h-5 w-5 text-amber-300" />
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Submissions</h2>
+                  <p className="text-sm text-white/55">Everything the client has sent in for review.</p>
+                </div>
+              </div>
+              {submissions.length ? (
+                <div className="space-y-3">
+                  {submissions.map((submission) => (
+                    <a key={submission.id} href={`/api/admin/submissions/${submission.id}/download`} className="flex items-start justify-between rounded-[1.5rem] border border-white/8 bg-black/10 p-4 transition hover:border-amber-300/20 hover:bg-black/15">
+                      <div>
+                        <p className="text-sm font-semibold text-white">{submission.fileName}</p>
+                        <p className="mt-1 text-xs text-white/45">{submission.category} • {submission.status.replaceAll("_", " ")} • {new Date(submission.submittedAt).toLocaleString()}</p>
+                        {submission.adminNotes ? <p className="mt-2 text-xs italic text-white/45">{submission.adminNotes}</p> : null}
+                      </div>
+                      <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/60">Open</span>
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState title="No submissions yet" description="Once this client uploads compliance or onboarding files, they will appear here with status history." />
+              )}
+            </section>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <section className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+            <p className="text-xs uppercase tracking-[0.3em] text-white/35">Client actions</p>
+            <div className="mt-4 space-y-3">
+              <button onClick={() => showAdminToast({ type: "success", title: "Welcome email prepared", message: "Use the generated welcome letter from the documents panel to send it from support." })} className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-left text-sm text-white transition hover:bg-white/8">
+                <Mail className="h-4 w-4 text-[#36EAEA]" />
+                Send Welcome Email
+              </button>
+              {!client.mailboxId ? (
+                <button onClick={handleCreateMailbox} disabled={creatingMailbox} className="flex w-full items-center gap-3 rounded-2xl border border-[#36EAEA]/20 bg-[#36EAEA]/10 px-4 py-3 text-left text-sm text-[#baf8f8] transition hover:bg-[#36EAEA]/15 disabled:opacity-50">
+                  <Mail className="h-4 w-4" />
+                  {creatingMailbox ? "Creating Mailbox..." : "Create Mailbox"}
+                </button>
+              ) : null}
+              <button onClick={toggleStatus} disabled={busy} className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-left text-sm text-white transition hover:bg-white/8 disabled:opacity-50">
+                <UserCog className="h-4 w-4 text-amber-300" />
+                {client.status === "suspended" ? "Activate account" : "Suspend account"}
+              </button>
+            </div>
+          </section>
+
+          <section className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+              <div className="rounded-[1.5rem] border border-emerald-400/15 bg-emerald-400/10 p-4">
+                <p className="text-xs uppercase tracking-[0.25em] text-emerald-100/60">Status</p>
+                <p className="mt-2 text-lg font-semibold capitalize text-white">{client.status}</p>
+                <p className="mt-1 text-sm text-white/55">Last active {new Date(client.lastActive ?? client.createdAt).toLocaleString()}</p>
+              </div>
+              <div className="rounded-[1.5rem] border border-[#36EAEA]/15 bg-[#36EAEA]/10 p-4">
+                <p className="text-xs uppercase tracking-[0.25em] text-[#9af7f7]/70">Plan</p>
+                <p className="mt-2 text-lg font-semibold capitalize text-white">{client.plan}</p>
+                <p className="mt-1 text-sm text-white/55">Mailbox {client.mailboxId ?? "not set"}</p>
+              </div>
+              <div className="rounded-[1.5rem] border border-amber-400/15 bg-amber-400/10 p-4">
+                <p className="text-xs uppercase tracking-[0.25em] text-amber-100/60">Add-ons</p>
+                <p className="mt-2 text-lg font-semibold text-white">{client.creditAddon ? "Credit reporting active" : "No credit add-on"}</p>
+                <p className="mt-1 text-sm text-white/55">{client.unitOwner ? `Owns Unit ${client.unitNumber ?? "—"}` : "No unit ownership recorded"}</p>
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+            <p className="text-xs uppercase tracking-[0.3em] text-white/35">Activity timeline</p>
+            <div className="mt-5 space-y-4">
+              {activity.map((item) => (
+                <div key={item.id} className="relative pl-6 before:absolute before:left-2 before:top-1.5 before:h-full before:w-px before:bg-white/10 last:before:hidden">
+                  <div className="absolute left-0 top-1.5 h-4 w-4 rounded-full border border-[#36EAEA]/30 bg-[#36EAEA]/15" />
+                  <p className="text-sm font-medium text-white">{item.title}</p>
+                  <p className="mt-1 text-xs text-white/45">{item.meta}</p>
+                  <p className="mt-1 text-xs text-white/30">{new Date(item.at).toLocaleString()}</p>
                 </div>
               ))}
             </div>
-          )}
-        </div>
-
-        {/* Status cards */}
-        <div className="space-y-3">
-          <div className={`glass-card rounded-2xl border p-4 ${client.status === "active" ? "border-emerald-400/30" : "border-amber-400/30"}`}>
-            <Check className={`h-5 w-5 mb-2 ${client.status === "active" ? "text-emerald-400" : "text-amber-400"}`} />
-            <p className="text-white font-semibold text-sm capitalize">{client.status}</p>
-            <p className="text-white/50 text-xs">Account status</p>
-          </div>
-          <div className={`glass-card rounded-2xl border p-4 ${client.creditAddon ? "border-teal-400/30" : "border-white/10"}`}>
-            <CreditCard className={`h-5 w-5 mb-2 ${client.creditAddon ? "text-teal-400" : "text-white/30"}`} />
-            <p className={`font-semibold text-sm ${client.creditAddon ? "text-teal-300" : "text-white/40"}`}>
-              {client.creditAddon ? "Credit Reporting Active" : "No Credit Add-on"}
-            </p>
-            <p className="text-white/50 text-xs">{client.creditAddon ? "$249/mo" : "Upsell opportunity"}</p>
-          </div>
-          {client.unitOwner && (
-            <div className="glass-card rounded-2xl border border-amber-400/30 p-4">
-              <Package className="h-5 w-5 text-amber-400 mb-2" />
-              <p className="text-amber-300 font-semibold text-sm">Unit Owner</p>
-              <p className="text-white/50 text-xs">Unit {client.unitNumber ?? "—"}</p>
-            </div>
-          )}
-          <div className="glass-card rounded-2xl border border-white/10 p-4">
-            <FileText className="h-5 w-5 text-white/30 mb-2" />
-            <p className="text-white font-semibold text-sm">{docs.length} documents</p>
-            <p className="text-white/50 text-xs">{submissions.length} submissions</p>
-          </div>
+          </section>
         </div>
       </div>
 
-      {/* Upload to this client */}
-      <div className="glass-card rounded-2xl border-white/10 p-6 mb-6">
-        <div className="flex items-center gap-2 mb-4">
-          <UploadCloud className="h-5 w-5 text-teal-400" />
-          <p className="text-white font-semibold">Upload Document to This Client</p>
-        </div>
-        <div className="grid md:grid-cols-3 gap-4">
-          <div>
-            <label className="text-xs text-white/50 uppercase tracking-wider block mb-2">Category</label>
-            <select value={uploadCategory} onChange={(e) => setUploadCategory(e.target.value)}
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none">
-              {["Compliance", "Address", "Banking", "Credit", "Contract", "General"].map(c => <option key={c}>{c}</option>)}
-            </select>
-          </div>
-          <div className="md:col-span-2">
-            <label className="text-xs text-white/50 uppercase tracking-wider block mb-2">Notes for client</label>
-            <input type="text" value={uploadNotes} onChange={(e) => setUploadNotes(e.target.value)}
-              placeholder="e.g. Please review and sign"
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none" />
-          </div>
-          <div className="md:col-span-2">
-            <label className="text-xs text-white/50 uppercase tracking-wider block mb-2">File</label>
-            <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp"
-              onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/70 file:mr-3 file:rounded-lg file:border-0 file:bg-teal-400/20 file:text-teal-300 file:text-xs file:px-3 file:py-1 focus:outline-none" />
-          </div>
-          <div className="flex items-end">
-            <button onClick={handleUpload} disabled={!uploadFile || uploading}
-              className="w-full py-2.5 rounded-xl bg-[#36EAEA] text-[#040d1a] font-semibold text-sm hover:bg-[#2fd4d4] transition-all disabled:opacity-40">
-              {uploading ? "Uploading..." : "Upload"}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Documents from AIBC */}
-      <div className="glass-card rounded-2xl border-white/10 p-6 mb-6">
-        <p className="text-xs uppercase tracking-widest text-teal-400/70 mb-1">From AIBC</p>
-        <h2 className="text-white text-lg font-semibold mb-4">Documents in Client Portal</h2>
-        {docs.length === 0 ? (
-          <p className="text-white/40 text-sm py-4">No documents uploaded yet</p>
-        ) : (
-          <div className="space-y-2">
-            {docs.map(doc => (
-              <div key={doc.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5">
-                <div className="flex items-center gap-3">
-                  <FileText className="h-4 w-4 text-teal-400 flex-shrink-0" />
-                  <div>
-                    <p className="text-white text-sm font-medium">{doc.fileName}</p>
-                    <p className="text-white/40 text-xs">{doc.category} · {(doc.fileSize / 1024).toFixed(0)} KB · {new Date(doc.uploadedAt).toLocaleDateString()}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Client Submissions */}
-      <div className="glass-card rounded-2xl border-white/10 p-6">
-        <p className="text-xs uppercase tracking-widest text-amber-400/70 mb-1">From Client</p>
-        <h2 className="text-white text-lg font-semibold mb-4">Client Submissions</h2>
-        {submissions.length === 0 ? (
-          <p className="text-white/40 text-sm py-4">No submissions from this client yet</p>
-        ) : (
-          <div className="space-y-2">
-            {submissions.map(sub => (
-              <div key={sub.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5">
-                <div>
-                  <p className="text-white text-sm font-medium">{sub.fileName}</p>
-                  <p className="text-white/40 text-xs">{sub.category} · {new Date(sub.submittedAt).toLocaleDateString()}</p>
-                  {sub.adminNotes && <p className="text-white/50 text-xs italic">{sub.adminNotes}</p>}
-                </div>
-                <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${
-                  sub.status === "approved" ? "bg-emerald-400/20 text-emerald-300" :
-                  sub.status === "pending_review" ? "bg-amber-400/20 text-amber-300" :
-                  "bg-red-400/20 text-red-300"
-                }`}>
-                  {sub.status.replace("_", " ")}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Delete client?"
+        description="Are you sure? This cannot be undone. The client and related admin records will be removed."
+        confirmLabel="Delete client"
+        busy={busy}
+        onCancel={() => setConfirmDelete(false)}
+        onConfirm={deleteClient}
+      />
     </div>
   );
 }

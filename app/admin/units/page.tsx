@@ -1,6 +1,8 @@
 "use client";
-import { useEffect, useState } from "react";
-import { Package, DollarSign } from "lucide-react";
+
+import { useEffect, useMemo, useState } from "react";
+import { DollarSign, Package } from "lucide-react";
+import { AdminPageHeader, EmptyState, showAdminToast } from "@/components/admin/AdminPrimitives";
 
 type Unit = {
   id: string;
@@ -16,9 +18,18 @@ type Unit = {
 };
 
 const STATUS_CONFIG = {
-  available: { color: "bg-emerald-400/20 text-emerald-300 border-emerald-400/30", label: "Available" },
-  assigned: { color: "bg-teal-400/20 text-teal-300 border-teal-400/30", label: "Sold" },
-  reserved: { color: "bg-amber-400/20 text-amber-300 border-amber-400/30", label: "Reserved" },
+  available: {
+    label: "Available",
+    card: "border-emerald-400/25 bg-emerald-400/12 text-emerald-100",
+  },
+  assigned: {
+    label: "Assigned",
+    card: "border-[#36EAEA]/25 bg-[#36EAEA]/12 text-[#b7ffff]",
+  },
+  reserved: {
+    label: "Reserved",
+    card: "border-amber-400/25 bg-amber-400/12 text-amber-100",
+  },
 };
 
 export default function AdminUnits() {
@@ -26,29 +37,31 @@ export default function AdminUnits() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Unit | null>(null);
   const [saving, setSaving] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/units")
-      .then(r => r.json())
-      .then(data => { setUnits(data.units ?? []); setLoading(false); })
+      .then((response) => response.json())
+      .then((data) => {
+        setUnits(data.units ?? []);
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
   }, []);
 
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 3000);
-    return () => clearTimeout(t);
-  }, [toast]);
-
-  const sold = units.filter(u => u.status === "assigned").length;
-  const available = units.filter(u => u.status === "available").length;
-  const revenue = sold * 250000;
+  const totals = useMemo(() => {
+    const available = units.filter((unit) => unit.status === "available").length;
+    const assigned = units.filter((unit) => unit.status === "assigned").length;
+    const reserved = units.filter((unit) => unit.status === "reserved").length;
+    const committed = units
+      .filter((unit) => unit.status === "assigned")
+      .reduce((sum, unit) => sum + Number(unit.salePrice ?? 250000), 0);
+    return { available, assigned, reserved, committed };
+  }, [units]);
 
   const saveUnit = async () => {
     if (!editing) return;
     setSaving(true);
-    const res = await fetch(`/api/admin/units/${editing.id}`, {
+    const response = await fetch(`/api/admin/units/${editing.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -58,130 +71,111 @@ export default function AdminUnits() {
         notes: editing.notes,
       }),
     });
-    if (res.ok) {
-      setUnits(prev => prev.map(u => u.id === editing.id ? editing : u));
-      setToast("Unit updated");
+
+    if (response.ok) {
+      setUnits((current) => current.map((unit) => (unit.id === editing.id ? editing : unit)));
+      showAdminToast({ type: "success", title: "Unit updated", message: `Unit ${editing.unitNumber} changes saved.` });
       setEditing(null);
+    } else {
+      showAdminToast({ type: "error", title: "Save failed", message: "Please try again." });
     }
     setSaving(false);
   };
 
   return (
-    <div className="p-6 lg:p-10 max-w-5xl">
-      {toast && (
-        <div className="fixed top-6 right-6 z-50 bg-teal-400/20 border border-teal-400/30 text-teal-300 text-sm px-5 py-3 rounded-2xl shadow-xl">
-          {toast}
-        </div>
-      )}
+    <div className="mx-auto max-w-7xl p-6 lg:p-10">
+      <AdminPageHeader
+        title="Unit Inventory"
+        description="Track inventory, ownership, and committed revenue across all deeded units."
+        breadcrumbs={[{ label: "Admin", href: "/admin" }, { label: "Units" }]}
+      />
 
-      <div className="mb-8">
-        <p className="text-red-400 text-xs font-semibold uppercase tracking-widest mb-1">Admin</p>
-        <h1 className="text-3xl font-bold text-white">Unit Inventory</h1>
-        <p className="text-white/60 text-sm mt-1">Track all 22 deeded AI Business Center units.</p>
-      </div>
-
-      {/* Summary */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
-        <div className="glass-card rounded-2xl border-white/10 p-5">
-          <Package className="h-5 w-5 text-emerald-400 mb-3" />
-          <div className="text-2xl font-bold text-white">{available}</div>
-          <div className="text-white/60 text-xs">Available</div>
+      <div className="mb-8 grid gap-4 md:grid-cols-4">
+        <div className="rounded-[2rem] border border-emerald-400/20 bg-emerald-400/10 p-5">
+          <Package className="h-5 w-5 text-emerald-200" />
+          <p className="mt-4 text-3xl font-semibold text-white">{totals.available}</p>
+          <p className="mt-1 text-sm text-white/55">Available units</p>
         </div>
-        <div className="glass-card rounded-2xl border-white/10 p-5">
-          <Package className="h-5 w-5 text-teal-400 mb-3" />
-          <div className="text-2xl font-bold text-white">{sold}</div>
-          <div className="text-white/60 text-xs">Sold</div>
+        <div className="rounded-[2rem] border border-[#36EAEA]/20 bg-[#36EAEA]/10 p-5">
+          <Package className="h-5 w-5 text-[#b7ffff]" />
+          <p className="mt-4 text-3xl font-semibold text-white">{totals.assigned}</p>
+          <p className="mt-1 text-sm text-white/55">Assigned units</p>
         </div>
-        <div className="glass-card rounded-2xl border-white/10 p-5">
-          <DollarSign className="h-5 w-5 text-amber-400 mb-3" />
-          <div className="text-2xl font-bold text-white">${(revenue / 1000000).toFixed(1)}M</div>
-          <div className="text-white/60 text-xs">Revenue</div>
+        <div className="rounded-[2rem] border border-amber-400/20 bg-amber-400/10 p-5">
+          <Package className="h-5 w-5 text-amber-100" />
+          <p className="mt-4 text-3xl font-semibold text-white">{totals.reserved}</p>
+          <p className="mt-1 text-sm text-white/55">Reserved units</p>
+        </div>
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-5">
+          <DollarSign className="h-5 w-5 text-white/60" />
+          <p className="mt-4 text-3xl font-semibold text-white">${totals.committed.toLocaleString()}</p>
+          <p className="mt-1 text-sm text-white/55">total committed</p>
         </div>
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {Array.from({length: 22}).map((_, i) => <div key={i} className="h-24 rounded-2xl bg-white/5 animate-pulse" />)}
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <div key={index} className="h-44 animate-pulse rounded-[2rem] border border-white/8 bg-white/5" />
+          ))}
         </div>
+      ) : units.length === 0 ? (
+        <EmptyState icon={<Package className="h-6 w-6" />} title="No units found" description="Add unit inventory records and they will appear here with status color coding and owner details." />
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {units.map((unit) => {
-            const cfg = STATUS_CONFIG[unit.status];
+            const config = STATUS_CONFIG[unit.status];
             return (
               <button
                 key={unit.id}
                 onClick={() => setEditing({ ...unit })}
-                className={`p-4 rounded-2xl border text-left transition-all hover:scale-[1.02] ${cfg.color}`}
+                className={`group rounded-[2rem] border p-5 text-left transition hover:-translate-y-0.5 hover:shadow-[0_12px_40px_rgba(0,0,0,0.25)] ${config.card}`}
               >
-                <p className="text-xs font-bold uppercase tracking-wider opacity-60 mb-1">Unit {unit.unitNumber}</p>
-                <p className="font-semibold text-sm">{cfg.label}</p>
-                {unit.ownerName && <p className="text-xs opacity-70 mt-1 truncate">{unit.ownerName}</p>}
-                <p className="text-xs opacity-50 mt-1">$250K</p>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.3em] text-white/50">Unit</p>
+                    <p className="mt-2 text-5xl font-bold text-white">{unit.unitNumber}</p>
+                  </div>
+                  <span className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold">{config.label}</span>
+                </div>
+                <div className="mt-6 space-y-2 text-sm text-white/70">
+                  <p>{unit.ownerName || "No owner assigned"}</p>
+                  <p>{unit.ownerEmail || "No email on file"}</p>
+                  <p>${Number(unit.salePrice ?? 250000).toLocaleString()} sale price</p>
+                </div>
               </button>
             );
           })}
         </div>
       )}
 
-      {/* Edit Modal */}
-      {editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="glass-card rounded-3xl border-white/10 p-8 max-w-md w-full">
-            <h2 className="text-white text-xl font-bold mb-6">Unit {editing.unitNumber}</h2>
-            <div className="space-y-4">
+      {editing ? (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 p-4 backdrop-blur-md">
+          <div className="w-full max-w-lg rounded-[2rem] border border-white/10 bg-[#081322]/95 p-6 shadow-2xl">
+            <div className="mb-5 flex items-start justify-between gap-4">
               <div>
-                <label className="text-xs text-white/50 uppercase tracking-wider block mb-2">Status</label>
-                <select
-                  value={editing.status}
-                  onChange={(e) => setEditing({ ...editing, status: e.target.value as Unit["status"] })}
-                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white focus:outline-none"
-                >
-                  <option value="available">Available</option>
-                  <option value="assigned">Sold</option>
-                  <option value="reserved">Reserved</option>
-                </select>
+                <p className="text-xs uppercase tracking-[0.3em] text-white/35">Unit Editor</p>
+                <h2 className="mt-2 text-3xl font-semibold text-white">Unit {editing.unitNumber}</h2>
               </div>
-              <div>
-                <label className="text-xs text-white/50 uppercase tracking-wider block mb-2">Owner Name</label>
-                <input
-                  type="text"
-                  value={editing.ownerName ?? ""}
-                  onChange={(e) => setEditing({ ...editing, ownerName: e.target.value })}
-                  placeholder="Full name"
-                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-white/50 uppercase tracking-wider block mb-2">Owner Email</label>
-                <input
-                  type="email"
-                  value={editing.ownerEmail ?? ""}
-                  onChange={(e) => setEditing({ ...editing, ownerEmail: e.target.value })}
-                  placeholder="email@example.com"
-                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-white/50 uppercase tracking-wider block mb-2">Notes</label>
-                <textarea
-                  rows={2}
-                  value={editing.notes ?? ""}
-                  onChange={(e) => setEditing({ ...editing, notes: e.target.value })}
-                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none"
-                />
-              </div>
+              <button onClick={() => setEditing(null)} className="rounded-xl border border-white/10 px-3 py-2 text-sm text-white/60 transition hover:bg-white/5 hover:text-white">Close</button>
             </div>
-            <div className="flex gap-3 mt-6">
-              <button onClick={saveUnit} disabled={saving} className="flex-1 py-3 rounded-2xl bg-[#36EAEA] text-[#040d1a] font-semibold text-sm hover:bg-[#2fd4d4] transition-all disabled:opacity-50">
-                {saving ? "Saving..." : "Save Changes"}
-              </button>
-              <button onClick={() => setEditing(null)} className="flex-1 py-3 rounded-2xl border border-white/10 text-white/60 text-sm hover:bg-white/5 transition-all">
-                Cancel
-              </button>
+            <div className="space-y-4">
+              <select value={editing.status} onChange={(event) => setEditing({ ...editing, status: event.target.value as Unit["status"] })} className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white focus:outline-none">
+                <option value="available">Available</option>
+                <option value="assigned">Assigned</option>
+                <option value="reserved">Reserved</option>
+              </select>
+              <input value={editing.ownerName ?? ""} onChange={(event) => setEditing({ ...editing, ownerName: event.target.value })} placeholder="Owner name" className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none" />
+              <input value={editing.ownerEmail ?? ""} onChange={(event) => setEditing({ ...editing, ownerEmail: event.target.value })} placeholder="Owner email" className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none" />
+              <textarea value={editing.notes ?? ""} onChange={(event) => setEditing({ ...editing, notes: event.target.value })} rows={4} placeholder="Notes" className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none" />
+            </div>
+            <div className="mt-6 flex gap-3">
+              <button onClick={saveUnit} disabled={saving} className="flex-1 rounded-2xl bg-[#36EAEA] px-4 py-3 text-sm font-semibold text-[#040d1a] transition hover:bg-[#5cf5f5] disabled:opacity-50">{saving ? "Saving..." : "Save changes"}</button>
+              <button onClick={() => setEditing(null)} className="flex-1 rounded-2xl border border-white/10 px-4 py-3 text-sm text-white/70 transition hover:bg-white/5 hover:text-white">Cancel</button>
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
