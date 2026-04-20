@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
+import { createMailboxForClient } from "@/lib/anytime-mailbox";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -44,6 +45,10 @@ export async function POST(request: NextRequest) {
       console.log("Payment completed:", session.customer_email, priceKey);
 
       const email = session.customer_email || session.customer_details?.email;
+      const fullName = session.customer_details?.name || email || "";
+      const businessName = session.metadata?.businessName || session.custom_fields?.find((field) => {
+        return field.type === "text" && field.key?.toLowerCase().includes("business");
+      })?.text?.value || null;
       const supabase = getSupabase();
 
       const plan = priceKey ? PLAN_PRICE_MAP[priceKey as keyof typeof PLAN_PRICE_MAP] : null;
@@ -53,18 +58,49 @@ export async function POST(request: NextRequest) {
           break;
         }
 
-        const { error: insertClientError } = await supabase.from("clients").upsert(
-          {
-            email,
-            full_name: session.customer_details?.name || email,
-            plan,
-            status: "pending",
-          },
-          { onConflict: "email" }
-        );
+        const { data: clientRecord, error: insertClientError } = await supabase
+          .from("clients")
+          .upsert(
+            {
+              email,
+              full_name: fullName,
+              business_name: businessName,
+              plan,
+              status: "pending",
+            },
+            { onConflict: "email" }
+          )
+          .select("id, email, full_name, business_name, plan, mailbox_id")
+          .single();
 
         if (insertClientError) {
           console.error("Unable to create client from plan checkout", insertClientError.message);
+        } else if (!clientRecord.mailbox_id) {
+          try {
+            const mailbox = await createMailboxForClient({
+              email: clientRecord.email,
+              fullName: clientRecord.full_name || fullName,
+              businessName: clientRecord.business_name,
+              planTier: clientRecord.plan,
+            });
+
+            const { error: updateMailboxError } = await supabase
+              .from("clients")
+              .update({
+                mailbox_id: mailbox.mailboxId,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", clientRecord.id);
+
+            if (updateMailboxError) {
+              console.error("Unable to store Anytime Mailbox mailbox id", updateMailboxError.message);
+            }
+          } catch (error) {
+            console.error(
+              "Unable to auto-create Anytime Mailbox mailbox",
+              error instanceof Error ? error.message : error
+            );
+          }
         }
       }
 

@@ -51,6 +51,7 @@ export default function ClientDetail({ params }: { params: Promise<{ id: string 
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<Partial<Client>>({});
   const [saving, setSaving] = useState(false);
+  const [creatingMailbox, setCreatingMailbox] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   // Upload state
@@ -116,6 +117,26 @@ export default function ClientDetail({ params }: { params: Promise<{ id: string 
     setUploading(false);
   };
 
+  const handleCreateMailbox = async () => {
+    setCreatingMailbox(true);
+    try {
+      const res = await fetch(`/api/admin/clients/${id}/create-mailbox`, { method: "POST" });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setToast(data.error ?? "Unable to create mailbox");
+        return;
+      }
+
+      setClient(prev => prev ? { ...prev, mailboxId: data.mailboxId ?? prev.mailboxId } : prev);
+      setToast(data.alreadyExists ? "Mailbox already exists" : "Mailbox created successfully");
+    } catch {
+      setToast("Unable to create mailbox");
+    } finally {
+      setCreatingMailbox(false);
+    }
+  };
+
   if (loading) return <div className="p-10"><div className="h-8 w-64 rounded-xl bg-white/5 animate-pulse" /></div>;
   if (!client) return <div className="p-10 text-white/60">Client not found</div>;
 
@@ -138,9 +159,20 @@ export default function ClientDetail({ params }: { params: Promise<{ id: string 
             <p className="text-white/60 text-sm mt-1">{client.businessName} · {client.email}</p>
           </div>
           {!editing ? (
-            <button onClick={startEdit} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 text-white/60 hover:text-white hover:bg-white/5 text-sm transition-all">
-              <Edit2 className="h-4 w-4" /> Edit
-            </button>
+            <div className="flex gap-2">
+              {!client.mailboxId && (
+                <button
+                  onClick={handleCreateMailbox}
+                  disabled={creatingMailbox}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl border border-teal-400/30 text-teal-300 hover:bg-teal-400/10 text-sm transition-all disabled:opacity-50"
+                >
+                  <Mail className="h-4 w-4" /> {creatingMailbox ? "Creating..." : "Create Mailbox"}
+                </button>
+              )}
+              <button onClick={startEdit} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 text-white/60 hover:text-white hover:bg-white/5 text-sm transition-all">
+                <Edit2 className="h-4 w-4" /> Edit
+              </button>
+            </div>
           ) : (
             <div className="flex gap-2">
               <button onClick={saveEdit} disabled={saving} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-400/20 border border-teal-400/30 text-teal-300 text-sm font-semibold hover:bg-teal-400/30 transition-all">
