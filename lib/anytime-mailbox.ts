@@ -55,7 +55,7 @@ function toFormBody(formData?: Record<string, unknown>) {
   return params.toString();
 }
 
-async function atmFetch(path: string, method = 'GET', formData?: Record<string, unknown>) {
+export async function atmFetch(path: string, method = 'GET', formData?: Record<string, unknown>) {
   if (!ATM_KEY) {
     throw new Error('ANYTIME_MAILBOX_API_KEY is not configured');
   }
@@ -148,6 +148,25 @@ export async function createMailboxForClient(input: CreateMailboxInput) {
     renter_id: Number(renterId),
     path: '/mailboxes/assign',
   };
+}
+
+export async function deactivateRenter(renterId: string) {
+  return atmFetch(`/renters/${renterId}/deactivate`, 'POST');
+}
+
+export async function getRenterMailboxes(renterId: string) {
+  const data = await atmFetch(`/renters/${renterId}/mailboxes`);
+  return typeof data === 'object' && data !== null
+    ? ((data as { data?: { mailboxes?: Array<Record<string, unknown>> }; mailboxes?: Array<Record<string, unknown>> }).data?.mailboxes ??
+        (data as { mailboxes?: Array<Record<string, unknown>> }).mailboxes ??
+        [])
+    : [];
+}
+
+export async function unassignMailbox(mailboxName: string) {
+  return atmFetch('/mailboxes/unassign', 'POST', {
+    mailbox_name: mailboxName,
+  });
 }
 
 export const atmClient = {

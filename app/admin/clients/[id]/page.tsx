@@ -3,10 +3,9 @@
 import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  CreditCard,
+  AlertTriangle,
   FileText,
   Mail,
-  Package,
   Send,
   Trash2,
   UploadCloud,
@@ -15,7 +14,6 @@ import {
 import {
   AdminPageHeader,
   BackLink,
-  ConfirmDialog,
   EmptyState,
   showAdminToast,
 } from "@/components/admin/AdminPrimitives";
@@ -79,7 +77,14 @@ export default function ClientDetail({ params }: { params: Promise<{ id: string 
   const [editingField, setEditingField] = useState<keyof Client | null>(null);
   const [draft, setDraft] = useState<Partial<Client>>({});
   const [creatingMailbox, setCreatingMailbox] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showOffboardModal, setShowOffboardModal] = useState(false);
+  const [offboarding, setOffboarding] = useState(false);
+  const [offboardOptions, setOffboardOptions] = useState({
+    cancelStripe: true,
+    deactivateMailbox: true,
+    deleteClient: true,
+  });
+  const [offboardNotes, setOffboardNotes] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadCategory, setUploadCategory] = useState("General");
   const [uploadNotes, setUploadNotes] = useState("");
@@ -169,15 +174,48 @@ export default function ClientDetail({ params }: { params: Promise<{ id: string 
     await saveField("status", nextStatus);
   };
 
-  const deleteClient = async () => {
-    setBusy(true);
-    const response = await fetch(`/api/admin/clients/${id}`, { method: "DELETE" });
-    if (response.ok) {
-      window.location.href = "/admin/clients";
-      return;
+  const handleOffboard = async () => {
+    setOffboarding(true);
+    try {
+      const response = await fetch(`/api/admin/clients/${id}/offboard`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...offboardOptions,
+          notes: offboardNotes.trim() || undefined,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        showAdminToast({
+          type: "error",
+          title: "Offboarding failed",
+          message: data.error ?? "The client could not be offboarded.",
+        });
+        return;
+      }
+
+      showAdminToast({
+        type: "success",
+        title: "Client offboarded",
+        message: offboardOptions.deleteClient
+          ? "Audit log saved and client record removed."
+          : "Selected offboarding actions completed and logged.",
+      });
+
+      if (offboardOptions.deleteClient) {
+        window.location.href = "/admin/clients";
+        return;
+      }
+
+      setShowOffboardModal(false);
+    } catch {
+      showAdminToast({ type: "error", title: "Offboarding failed", message: "The client could not be offboarded." });
+    } finally {
+      setOffboarding(false);
     }
-    showAdminToast({ type: "error", title: "Delete failed", message: "The client could not be removed." });
-    setBusy(false);
   };
 
   const activity = useMemo(() => {
@@ -238,7 +276,7 @@ export default function ClientDetail({ params }: { params: Promise<{ id: string 
           { label: client.fullName },
         ]}
         action={
-          <button onClick={() => setConfirmDelete(true)} className="inline-flex items-center gap-2 rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm font-semibold text-red-200 transition hover:bg-red-400/20">
+          <button onClick={() => setShowOffboardModal(true)} className="inline-flex items-center gap-2 rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm font-semibold text-red-200 transition hover:bg-red-400/20">
             <Trash2 className="h-4 w-4" />
             Delete Client
           </button>
@@ -438,15 +476,87 @@ export default function ClientDetail({ params }: { params: Promise<{ id: string 
         </div>
       </div>
 
-      <ConfirmDialog
-        open={confirmDelete}
-        title="Delete client?"
-        description="Are you sure? This cannot be undone. The client and related admin records will be removed."
-        confirmLabel="Delete client"
-        busy={busy}
-        onCancel={() => setConfirmDelete(false)}
-        onConfirm={deleteClient}
-      />
+      {showOffboardModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="glass-card w-full max-w-lg rounded-3xl border border-white/10 p-8 shadow-2xl">
+            <div className="mb-2 flex items-center gap-3">
+              <AlertTriangle className="h-6 w-6 text-red-400" />
+              <h2 className="text-xl font-bold text-white">Offboard Client</h2>
+            </div>
+            <p className="mb-6 text-sm text-white/60">{client.fullName} · {client.email}</p>
+
+            <div className="mb-6 space-y-3">
+              <p className="mb-3 text-xs uppercase tracking-widest text-white/40">Select actions to perform:</p>
+
+              <label className="flex cursor-pointer items-start gap-3 rounded-xl bg-white/5 p-3 transition-all hover:bg-white/10">
+                <input
+                  type="checkbox"
+                  checked={offboardOptions.cancelStripe}
+                  onChange={(event) => setOffboardOptions((previous) => ({ ...previous, cancelStripe: event.target.checked }))}
+                  className="mt-0.5 rounded"
+                />
+                <div>
+                  <p className="text-sm font-semibold text-white">Cancel Stripe Subscription</p>
+                  <p className="text-xs text-white/50">Immediately cancels any active billing. Client will not be charged again.</p>
+                </div>
+              </label>
+
+              <label className="flex cursor-pointer items-start gap-3 rounded-xl bg-white/5 p-3 transition-all hover:bg-white/10">
+                <input
+                  type="checkbox"
+                  checked={offboardOptions.deactivateMailbox}
+                  onChange={(event) => setOffboardOptions((previous) => ({ ...previous, deactivateMailbox: event.target.checked }))}
+                  className="mt-0.5 rounded"
+                />
+                <div>
+                  <p className="text-sm font-semibold text-white">Deactivate Mailbox & Release Address</p>
+                  <p className="text-xs text-white/50">Deactivates their Anytime Mailbox account and releases their address slot for reassignment.</p>
+                </div>
+              </label>
+
+              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-red-500/20 bg-red-500/10 p-3 transition-all hover:bg-red-500/15">
+                <input
+                  type="checkbox"
+                  checked={offboardOptions.deleteClient}
+                  onChange={(event) => setOffboardOptions((previous) => ({ ...previous, deleteClient: event.target.checked }))}
+                  className="mt-0.5 rounded"
+                />
+                <div>
+                  <p className="text-sm font-semibold text-red-300">Delete Client Record</p>
+                  <p className="text-xs text-white/50">Permanently removes all portal data. This cannot be undone. An audit log will be saved.</p>
+                </div>
+              </label>
+            </div>
+
+            <div className="mb-5">
+              <label className="mb-2 block text-xs text-white/50">Notes (optional, for audit log)</label>
+              <textarea
+                rows={2}
+                value={offboardNotes}
+                onChange={(event) => setOffboardNotes(event.target.value)}
+                placeholder="Reason for offboarding..."
+                className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleOffboard}
+                disabled={offboarding || (!offboardOptions.cancelStripe && !offboardOptions.deactivateMailbox && !offboardOptions.deleteClient)}
+                className="flex-1 rounded-2xl border border-red-500/30 bg-red-500/20 py-3 text-sm font-semibold text-red-300 transition-all hover:bg-red-500/30 disabled:opacity-40"
+              >
+                {offboarding ? "Processing..." : "Confirm Offboarding"}
+              </button>
+              <button
+                onClick={() => setShowOffboardModal(false)}
+                className="flex-1 rounded-2xl border border-white/10 py-3 text-sm text-white/60 transition-all hover:bg-white/5"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

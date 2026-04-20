@@ -8,6 +8,7 @@ import {
   CreditCard,
   FileText,
   FolderOpen,
+  History,
   Keyboard,
   Landmark,
   LayoutDashboard,
@@ -24,6 +25,7 @@ const navItems = [
   { href: "/admin/tradelines", icon: Landmark, label: "Trade Lines" },
   { href: "/admin/submissions", icon: FileText, label: "Submissions", badgeKey: "pendingReview" as const },
   { href: "/admin/documents", icon: FolderOpen, label: "Documents" },
+  { href: "/admin/offboarding", icon: History, label: "Offboarding Log" },
   { href: "/admin/units", icon: Package, label: "Units" },
   { href: "/admin/settings", icon: Settings, label: "Settings" },
 ];
