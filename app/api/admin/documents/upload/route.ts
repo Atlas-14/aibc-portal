@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-
+import { sendDocumentUploadedEmail } from "@/lib/notifications";
 
 const MAX_SIZE = 10 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["application/pdf", "image/png", "image/jpeg", "image/jpg", "image/webp"]);
@@ -53,5 +53,27 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 });
-  return NextResponse.json({ document: data }, { status: 201 });
+
+  const { data: client } = await supabase
+    .from("clients")
+    .select("email, full_name")
+    .eq("id", clientId)
+    .single();
+
+  let notificationError: string | null = null;
+
+  if (client?.email) {
+    try {
+      await sendDocumentUploadedEmail({
+        clientEmail: client.email,
+        clientName: client.full_name || client.email,
+        documentName: file.name,
+        category,
+      });
+    } catch (error) {
+      notificationError = error instanceof Error ? error.message : "Unable to send document notification";
+    }
+  }
+
+  return NextResponse.json({ document: data, notificationError }, { status: 201 });
 }

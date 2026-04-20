@@ -89,6 +89,7 @@ export default function ClientDetail({ params }: { params: Promise<{ id: string 
   const [uploadCategory, setUploadCategory] = useState("General");
   const [uploadNotes, setUploadNotes] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [sendingWelcomeEmail, setSendingWelcomeEmail] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -165,6 +166,25 @@ export default function ClientDetail({ params }: { params: Promise<{ id: string 
       showAdminToast({ type: "error", title: "Mailbox failed", message: "Unable to create mailbox." });
     } finally {
       setCreatingMailbox(false);
+    }
+  };
+
+  const handleSendWelcomeEmail = async () => {
+    setSendingWelcomeEmail(true);
+    try {
+      const response = await fetch(`/api/admin/clients/${id}/send-welcome`, { method: "POST" });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        showAdminToast({ type: "error", title: "Email failed", message: data.error ?? "Unable to send welcome email." });
+        return;
+      }
+
+      showAdminToast({ type: "success", title: "Welcome email sent", message: "The client has been emailed with their next steps." });
+    } catch {
+      showAdminToast({ type: "error", title: "Email failed", message: "Unable to send welcome email." });
+    } finally {
+      setSendingWelcomeEmail(false);
     }
   };
 
@@ -423,9 +443,9 @@ export default function ClientDetail({ params }: { params: Promise<{ id: string 
           <section className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
             <p className="text-xs uppercase tracking-[0.3em] text-white/35">Client actions</p>
             <div className="mt-4 space-y-3">
-              <button onClick={() => showAdminToast({ type: "success", title: "Welcome email prepared", message: "Use the generated welcome letter from the documents panel to send it from support." })} className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-left text-sm text-white transition hover:bg-white/8">
+              <button onClick={handleSendWelcomeEmail} disabled={sendingWelcomeEmail} className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-left text-sm text-white transition hover:bg-white/8 disabled:opacity-50">
                 <Mail className="h-4 w-4 text-[#36EAEA]" />
-                Send Welcome Email
+                {sendingWelcomeEmail ? "Sending Welcome Email..." : "Send Welcome Email"}
               </button>
               {!client.mailboxId ? (
                 <button onClick={handleCreateMailbox} disabled={creatingMailbox} className="flex w-full items-center gap-3 rounded-2xl border border-[#36EAEA]/20 bg-[#36EAEA]/10 px-4 py-3 text-left text-sm text-[#baf8f8] transition hover:bg-[#36EAEA]/15 disabled:opacity-50">

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { sendAccountActivatedEmail } from "@/lib/notifications";
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -30,6 +31,17 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
   const { id } = await params;
   const body = await request.json();
+
+  const { data: existingClient, error: existingClientError } = await supabase
+    .from("clients")
+    .select("status, email, full_name")
+    .eq("id", id)
+    .single();
+
+  if (existingClientError || !existingClient) {
+    return NextResponse.json({ error: existingClientError?.message || "Client not found" }, { status: 404 });
+  }
+
   const { error } = await supabase
     .from("clients")
     .update({
@@ -47,7 +59,22 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     })
     .eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ success: true });
+
+  let notificationError: string | null = null;
+  const becameActive = existingClient.status !== "active" && body.status === "active";
+
+  if (becameActive) {
+    try {
+      await sendAccountActivatedEmail({
+        clientEmail: body.email || existingClient.email,
+        clientName: body.fullName || existingClient.full_name || body.email || existingClient.email,
+      });
+    } catch (sendError) {
+      notificationError = sendError instanceof Error ? sendError.message : "Unable to send activation email";
+    }
+  }
+
+  return NextResponse.json({ success: true, notificationError });
 }
 
 export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
