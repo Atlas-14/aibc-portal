@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
               email: clientRecord.email,
               fullName: clientRecord.full_name || fullName,
               businessName: clientRecord.business_name,
-              planTier: clientRecord.plan,
+              planTier: plan,
             });
 
             const { error: updateMailboxError } = await supabase

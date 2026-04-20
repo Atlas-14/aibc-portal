@@ -7,6 +7,12 @@ const ATM_BASE = 'https://connect.anytimemailbox.com/v1';
 const ATM_KEY = process.env.ANYTIME_MAILBOX_API_KEY!;
 export const ATM_PENDING_SETUP_VALUE = 'PENDING_SETUP';
 
+const SERVICE_PLAN_MAP: Record<string, number> = {
+  essentials: 31970,
+  plus: 31971,
+  pro: 31972,
+};
+
 export type CreateMailboxInput = {
   email: string;
   fullName: string;
@@ -86,6 +92,12 @@ export async function createMailboxForClient(input: CreateMailboxInput) {
   const nameParts = (input.fullName || '').trim().split(/\s+/).filter(Boolean);
   const firstName = nameParts[0] || 'Client';
   const lastName = nameParts.slice(1).join(' ') || 'Client';
+  const normalizedPlanTier = input.planTier?.trim().toLowerCase() || 'essentials';
+  const servicePlanId = SERVICE_PLAN_MAP[normalizedPlanTier];
+
+  if (!servicePlanId) {
+    throw new Error(`Unsupported Anytime Mailbox plan tier: ${input.planTier}`);
+  }
 
   const renterData = await atmFetch('/renters', 'POST', {
     first_name: firstName,
@@ -116,29 +128,25 @@ export async function createMailboxForClient(input: CreateMailboxInput) {
         []
       : []);
 
-  let path = '/renters';
+  const mailboxName = String(mailboxes[0]?.name || mailboxes[0]?.mailbox_name || '').trim();
 
-  if (mailboxes.length > 0) {
-    const mailboxName = String(mailboxes[0]?.name || mailboxes[0]?.mailbox_name || '').trim();
-
-    if (mailboxName) {
-      try {
-        await atmFetch(`/mailboxes/${encodeURIComponent(mailboxName)}/assign`, 'POST', {
-          renter_id: String(renterId),
-        });
-        path = `/mailboxes/${encodeURIComponent(mailboxName)}/assign`;
-      } catch (error) {
-        console.error('Mailbox assignment failed:', error);
-      }
-    }
+  if (!mailboxName) {
+    throw new Error('No available Anytime Mailbox mailbox found');
   }
+
+  await atmFetch('/mailboxes/assign', 'POST', {
+    renter_id: String(renterId),
+    mailbox_name: mailboxName,
+    service_plan_id: String(servicePlanId),
+    billing_cycle: 'monthly',
+  });
 
   return {
     mailboxId: String(renterId),
     mailbox_id: String(renterId),
     renterId: Number(renterId),
     renter_id: Number(renterId),
-    path,
+    path: '/mailboxes/assign',
   };
 }
 
