@@ -21,6 +21,32 @@ const TRADELINE_PRICE_MAP: Record<string, { tier: "5k" | "10k" | "25k" | "50k"; 
   tradeline_50k: { tier: "50k", creditLimit: 50000, monthlyFee: 59700 },
 };
 
+// Sync to Airtable
+async function syncClientToAirtable(client: { email: string; fullName: string; plan: string }) {
+  try {
+    await fetch(`https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/Clients`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.AIRTABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        records: [{
+          fields: {
+            Name: client.fullName,
+            Email: client.email,
+            Plan: client.plan,
+            Status: "pending",
+            Created: new Date().toISOString(),
+          },
+        }],
+      }),
+    });
+  } catch (e) {
+    console.error("Airtable sync failed:", e);
+  }
+}
+
 export async function POST(request: NextRequest) {
   const body = await request.text();
   const sig = request.headers.get("stripe-signature");
@@ -75,31 +101,39 @@ export async function POST(request: NextRequest) {
 
         if (insertClientError) {
           console.error("Unable to create client from plan checkout", insertClientError.message);
-        } else if (!clientRecord.mailbox_id) {
-          try {
-            const mailbox = await createMailboxForClient({
-              email: clientRecord.email,
-              fullName: clientRecord.full_name || fullName,
-              businessName: clientRecord.business_name,
-              planTier: plan,
-            });
+        } else {
+          await syncClientToAirtable({
+            email: clientRecord.email,
+            fullName: clientRecord.full_name || fullName,
+            plan,
+          });
 
-            const { error: updateMailboxError } = await supabase
-              .from("clients")
-              .update({
-                mailbox_id: mailbox.mailboxId,
-                updated_at: new Date().toISOString(),
-              })
-              .eq("id", clientRecord.id);
+          if (!clientRecord.mailbox_id) {
+            try {
+              const mailbox = await createMailboxForClient({
+                email: clientRecord.email,
+                fullName: clientRecord.full_name || fullName,
+                businessName: clientRecord.business_name,
+                planTier: plan,
+              });
 
-            if (updateMailboxError) {
-              console.error("Unable to store Anytime Mailbox mailbox id", updateMailboxError.message);
+              const { error: updateMailboxError } = await supabase
+                .from("clients")
+                .update({
+                  mailbox_id: mailbox.mailboxId,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", clientRecord.id);
+
+              if (updateMailboxError) {
+                console.error("Unable to store Anytime Mailbox mailbox id", updateMailboxError.message);
+              }
+            } catch (error) {
+              console.error(
+                "Unable to auto-create Anytime Mailbox mailbox",
+                error instanceof Error ? error.message : error
+              );
             }
-          } catch (error) {
-            console.error(
-              "Unable to auto-create Anytime Mailbox mailbox",
-              error instanceof Error ? error.message : error
-            );
           }
         }
       }
