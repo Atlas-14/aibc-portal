@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 import { createMailboxForClient } from "@/lib/anytime-mailbox";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 const getSupabase = () =>
   createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
 
   try {
     if (webhookSecret && sig) {
-      event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
+      event = getStripe().webhooks.constructEvent(body, sig, webhookSecret);
     } else {
       event = JSON.parse(body);
     }

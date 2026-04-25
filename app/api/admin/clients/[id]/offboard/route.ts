@@ -16,7 +16,6 @@ type ActionLogEntry = {
   [key: string]: unknown;
 };
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 const getSupabase = () =>
   createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -42,12 +41,12 @@ async function cancelStripeSubscription(subscriptionId: string) {
 }
 
 async function findAndCancelStripeSubscriptionsByEmail(email: string) {
-  const customers = await stripe.customers.list({ email, limit: 100 });
+  const customers = await getStripe().customers.list({ email, limit: 100 });
   const activeStatuses = new Set(["active", "trialing", "past_due", "unpaid"]);
   const cancelledIds: string[] = [];
 
   for (const customer of customers.data) {
-    const subscriptions = await stripe.subscriptions.list({ customer: customer.id, status: "all", limit: 100 });
+    const subscriptions = await getStripe().subscriptions.list({ customer: customer.id, status: "all", limit: 100 });
     for (const subscription of subscriptions.data) {
       if (!activeStatuses.has(subscription.status)) continue;
       await cancelStripeSubscription(subscription.id);
@@ -96,6 +95,11 @@ async function insertOffboardingLog({
   if (error) {
     throw new Error(error.message);
   }
+}
+
+
+function getStripe() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!);
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

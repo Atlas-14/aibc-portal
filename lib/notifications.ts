@@ -1,6 +1,6 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const getResend = () => new Resend(process.env.RESEND_API_KEY);
 const FROM = "AIBC <onboarding@resend.dev>";
 const DEFAULT_PORTAL_URL = "https://portal.aibusinesscenters.com";
 const DEFAULT_DOCUMENTS_URL = `${DEFAULT_PORTAL_URL}/dashboard/documents`;
@@ -18,7 +18,7 @@ export async function sendDocumentUploadedEmail(params: {
   category: string;
   portalUrl?: string;
 }) {
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM,
     to: [params.clientEmail],
     subject: `New document available: ${params.documentName}`,
@@ -54,7 +54,7 @@ export async function sendWelcomeEmail(params: {
   businessName?: string;
   businessAddress: string;
 }) {
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM,
     to: [params.clientEmail],
     subject: "Welcome to AI Business Centers - Action Required",
@@ -94,7 +94,7 @@ export async function sendAccountActivatedEmail(params: {
   clientEmail: string;
   clientName: string;
 }) {
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM,
     to: [params.clientEmail],
     subject: "Your AIBC account is active",

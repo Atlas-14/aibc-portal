@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 const AIBC_LOGO_URL = "https://www.aibusinesscenters.com/aibc-logo-transparent.png";
 
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
 
   const origin = request.headers.get("origin") || "https://portal.aibusinesscenters.com";
 
-  const session = await stripe.checkout.sessions.create({
+  const session = await getStripe().checkout.sessions.create({
     mode: priceConfig.mode,
     ...(priceConfig.mode === "payment" ? { submit_type: "pay" } : {}),
     customer_email: email,
